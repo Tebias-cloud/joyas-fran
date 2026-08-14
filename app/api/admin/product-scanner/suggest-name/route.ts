@@ -28,7 +28,9 @@ export async function POST(request: NextRequest) {
       }
     );
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !ADMIN_EMAIL || user.email !== ADMIN_EMAIL) {
+    const isUserAdmin = user?.app_metadata?.role === 'admin';
+
+    if (!user || !isUserAdmin) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 

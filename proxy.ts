@@ -52,12 +52,21 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // 5. Protección Admin por Correo Electrónico
-  // Si ADMIN_EMAIL no está configurado, bloquear acceso a /admin sin excepción.
+  // 5. Protección Admin por Rol en Supabase
+  // Si el usuario tiene el rol 'admin' en su metadata de Supabase, se le permite el acceso.
   if (request.nextUrl.pathname.startsWith('/admin')) {
-    if (!ADMIN_EMAIL || user?.email !== ADMIN_EMAIL) {
+    const isUserAdmin = user?.app_metadata?.role === 'admin';
+
+    console.log("🔍 [DEBUG PROXY] Intentando entrar a /admin:");
+    console.log("   - User Email:", user?.email);
+    console.log("   - Rol en Supabase:", user?.app_metadata?.role);
+    console.log("   - ¿Es Administrador?:", isUserAdmin);
+
+    if (!isUserAdmin) {
+      console.log("   - [ACCESO DENEGADO] Redirigiendo a /");
       return NextResponse.redirect(new URL('/', request.url));
     }
+    console.log("   - [ACCESO PERMITIDO] Entrando a /admin");
   }
 
   return response;

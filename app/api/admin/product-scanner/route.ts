@@ -78,7 +78,9 @@ export async function POST(request: NextRequest) {
   try {
     // 1. Auth — solo admin puede acceder
     const user = await getAdminUser();
-    if (!user || !ADMIN_EMAIL || user.email !== ADMIN_EMAIL) {
+    const isUserAdmin = user?.app_metadata?.role === 'admin';
+
+    if (!user || !isUserAdmin) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
