@@ -2,15 +2,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  compare_at_price?: number;
-  image_url: string;
-  stock: number;
-  slug: string;
-}
+import { Product } from '@/types/product';
 
 export default function ProductCard({ product }: { product: Product }) {
   // Lógica de Stock Bajo: sutil y elegante
@@ -27,9 +19,10 @@ export default function ProductCard({ product }: { product: Product }) {
         )}
         
         <Image 
-          src={product.image_url} 
+          src={product.image_url || '/img/cat-anillos.webp'} 
           alt={product.name}
           fill
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           className="object-cover transition-transform duration-700 group-hover:scale-105"
         />
       </div>

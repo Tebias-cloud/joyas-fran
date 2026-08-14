@@ -1,14 +1,17 @@
-import { createClient } from '@supabase/supabase-js';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { getShippingRateByRegion } from '@/services/shippingService';
+import { ValidateShippingRequestSchema } from '@/lib/validators';
 import { NextResponse } from 'next/server';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export async function POST(request: Request) {
   try {
-    const { region, city, cartTotal } = await request.json();
+    const body = await request.json();
+    const result = ValidateShippingRequestSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json({ error: result.error.issues[0]?.message || 'Parámetros inválidos' }, { status: 400 });
+    }
+
+    const { region, city, cartTotal } = result.data;
 
     const FREE_SHIPPING_THRESHOLD = 100000;
     const isFreeShipping = cartTotal >= FREE_SHIPPING_THRESHOLD;
@@ -31,14 +34,10 @@ export async function POST(request: Request) {
     }
     // ----------------------------------------------
 
-    // El resto del código sigue igual para las otras regiones...
-    const { data: zone, error } = await supabase
-      .from('shipping_rates')
-      .select('price, days')
-      .eq('region', region)
-      .single();
+    const supabase = await createSupabaseServerClient();
+    const zone = await getShippingRateByRegion(supabase, region);
 
-    if (error || !zone) {
+    if (!zone) {
       return NextResponse.json({
         rate: {
           name: "Envío Estándar",
@@ -60,6 +59,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
+    console.error("Error shipping route:", error);
     return NextResponse.json({ error: 'Error calculando envío' }, { status: 500 });
   }
 }

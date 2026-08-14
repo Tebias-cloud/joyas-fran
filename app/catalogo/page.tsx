@@ -1,8 +1,8 @@
 import { Suspense } from 'react';
-import { supabase } from '@/lib/supabase';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import CatalogClient from './CatalogClient';
+import CatalogSkeleton from '@/components/ui/CatalogSkeleton';
 
 // --- CONFIGURACIÓN DE RENDIMIENTO ---
 // Revalidar la caché cada 60 segundos (ISR).
@@ -31,34 +31,30 @@ export interface Product {
   compare_at_price?: number | null;
 }
 
-async function getCatalogData() {
-  // 1. Obtener productos (OPTIMIZADO)
-  // Solo seleccionamos los campos necesarios para la tarjeta del producto.
-  // Esto reduce el tamaño del payload y acelera la carga inicial.
-  const { data: productsData, error: productsError } = await supabase
-    .from('products')
-    .select('id, name, price, compare_at_price, image_url, images, category, slug, stock, created_at')
-    .order('created_at', { ascending: false });
+import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { getProducts, getActiveCategories } from '@/services/productService';
+import { ProductDTO } from '@/types/product';
 
-  if (productsError) {
-    console.error('Error fetching products:', productsError);
+async function getCatalogData() {
+  const supabase = await createSupabaseServerClient();
+  
+  // 1. Obtener productos mapeados a DTOs usando el servicio
+  let products: ProductDTO[] = [];
+  try {
+    products = await getProducts(supabase);
+  } catch (error) {
+    console.error('Error fetching products via service:', error);
   }
 
-  // 2. Obtener categorías
-  const { data: settingsData } = await supabase
-    .from('store_settings')
-    .select('value')
-    .eq('key', 'categories')
-    .single();
-
-  // 3. Sanitización de datos
-  const products = (productsData as Product[]) || [];
-  
-  // Aseguramos que categories sea un array de strings limpio
-  const categoriesRaw = settingsData?.value;
-  const categoriesList = Array.isArray(categoriesRaw) 
-    ? categoriesRaw.map(String) 
-    : ['Anillos', 'Collares', 'Aros', 'Pulseras']; // Fallback por seguridad
+  // 2. Obtener categorías dinámicas usando el servicio
+  let categoriesList: string[] = [];
+  try {
+    const activeCategories = await getActiveCategories(supabase);
+    categoriesList = activeCategories.map(c => c.name);
+  } catch (error) {
+    console.error('Error fetching categories via service:', error);
+    categoriesList = ['Anillos', 'Collares', 'Aros', 'Pulseras']; // Fallback por seguridad
+  }
 
   const categories = ['Todos', ...categoriesList];
 
@@ -68,16 +64,28 @@ async function getCatalogData() {
 export default async function CatalogoPage() {
   const { products, categories } = await getCatalogData();
 
+  const legacyProducts: Product[] = products.map(p => ({
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    image_url: p.imageUrl,
+    images: p.images,
+    category: p.categoryName,
+    slug: p.slug,
+    stock: p.stock,
+    created_at: p.createdAt,
+    description: p.description,
+    inventory: p.inventory,
+    sizes: p.sizes,
+    compare_at_price: p.compareAtPrice
+  }));
+
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <Header />
       <main className="flex-grow">
-        <Suspense fallback={
-          <div className="h-96 flex items-center justify-center text-gray-400 font-serif italic animate-pulse">
-            Cargando colección...
-          </div>
-        }>
-          <CatalogClient initialProducts={products} categories={categories} />
+        <Suspense fallback={<CatalogSkeleton />}>
+          <CatalogClient initialProducts={legacyProducts} categories={categories} />
         </Suspense>
       </main>
       <Footer />

@@ -190,7 +190,16 @@ export default function CatalogClient({ initialProducts, categories }: { initial
           </div>
         </div>
         
-        {filteredProducts.length === 0 ? (
+        {/* CASO 1: Catálogo sin productos (sin ningún producto en la BD) */}
+        {initialProducts.length === 0 ? (
+          <div className="text-center py-32 bg-gray-50 rounded-lg">
+            <p className="text-gray-400 font-serif italic mb-2 text-xl">No hay joyas disponibles</p>
+            <p className="text-gray-300 text-xs uppercase tracking-widest">
+              Vuelve pronto, estamos preparando nuevas colecciones.
+            </p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          /* CASO 2: Hay productos, pero los filtros actuales no dan resultados */
           <div className="text-center py-32 bg-gray-50 rounded-lg">
             <p className="text-gray-400 font-serif italic mb-4">No encontramos joyas con esos filtros.</p>
             <button onClick={clearFilters} className="text-xs uppercase font-bold border-b border-black pb-0.5 hover:text-gray-600 transition-colors">

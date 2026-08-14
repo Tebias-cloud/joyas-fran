@@ -13,6 +13,7 @@ export interface CartItem {
   selectedSize: string;
   inventory?: Record<string, number>;
   slug: string;
+  stock?: number;
 }
 
 interface CartContextType {

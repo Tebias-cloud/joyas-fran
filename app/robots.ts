@@ -1,14 +1,19 @@
 import { MetadataRoute } from 'next';
+import { SITE_URL } from '@/lib/config';
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = 'https://joyas-fran.vercel.app'; // <--- TU DOMINIO AQUÍ
-
   return {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin/', '/cuenta/'], // Ocultamos admin y cuenta a Google
+      disallow: [
+        '/admin/',
+        '/checkout/',
+        '/cuenta/',
+        '/api/',
+        '/payment/',
+      ],
     },
-    sitemap: `${baseUrl}/sitemap.xml`,
+    sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }

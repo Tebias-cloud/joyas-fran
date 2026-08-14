@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Instagram, Mail, ShieldCheck, CreditCard, Truck, Star, MessageCircle } from 'lucide-react';
+import { CONTACT_EMAIL, CONTACT_PHONE, INSTAGRAM_HANDLE, WHATSAPP_MESSAGE_DEFAULT } from '@/lib/config';
 
 export default function Footer() {
   return (
@@ -51,7 +52,7 @@ export default function Footer() {
             <div className="flex gap-4 pt-2">
               {/* Instagram */}
               <a 
-                href="https://www.instagram.com/joyas_fran_cl/" 
+                href={`https://www.instagram.com/${INSTAGRAM_HANDLE}/`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 hover:bg-black hover:text-white transition-all"
@@ -60,7 +61,7 @@ export default function Footer() {
               </a>
               {/* WhatsApp */}
               <a 
-                href="https://wa.me/56976400158?text=Hola!%20Vengo%20de%20la%20tienda%20online%20y%20tengo%20una%20consulta." 
+                href={`https://wa.me/${CONTACT_PHONE}?text=${encodeURIComponent(WHATSAPP_MESSAGE_DEFAULT)}`} 
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 hover:bg-black hover:text-white transition-all"
@@ -69,7 +70,7 @@ export default function Footer() {
               </a>
               {/* Email */}
               <a 
-                href="mailto:joyasfran925@gmail.com" 
+                href={`mailto:${CONTACT_EMAIL}`} 
                 className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 hover:bg-black hover:text-white transition-all"
               >
                 <Mail className="w-4 h-4"/>

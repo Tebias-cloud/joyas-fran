@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -150,7 +150,7 @@ function AuthContent() {
             setMode('login');
         }
       }
-    } catch (error) {
+    } catch {
       toast.error('Ocurrió un error inesperado');
     } finally {
       setLoading(false);

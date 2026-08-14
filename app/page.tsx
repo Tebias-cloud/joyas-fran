@@ -6,6 +6,9 @@ import Image from 'next/image';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { ArrowRight, Star } from 'lucide-react';
+import { supabaseBrowser } from '@/lib/supabase-browser';
+import { getActiveCategories } from '@/services/productService';
+import { CategoryDTO } from '@/types/product';
 
 // --- COMPONENTE UTILITARIO PARA ANIMAR AL SCROLLEAR ---
 const RevealOnScroll = ({ children, delay = 0, className = "" }: { children: ReactNode, delay?: number, className?: string }) => {
@@ -45,6 +48,26 @@ const RevealOnScroll = ({ children, delay = 0, className = "" }: { children: Rea
 
 // --- PÁGINA PRINCIPAL ---
 export default function HomePage() {
+  const [categories, setCategories] = useState<CategoryDTO[]>([
+    { id: 1, name: 'Anillos', slug: 'anillos', description: '', imageUrl: '/img/cat-anillos.webp', position: 0, isActive: true },
+    { id: 2, name: 'Collares', slug: 'collares', description: '', imageUrl: '/img/cat-collares.webp', position: 0, isActive: true },
+    { id: 3, name: 'Aros', slug: 'aros', description: '', imageUrl: '/img/cat-aros.webp', position: 0, isActive: true }
+  ]);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await getActiveCategories(supabaseBrowser);
+        if (data && data.length > 0) {
+          setCategories(data);
+        }
+      } catch (err) {
+        console.error("Error loading categories on homepage:", err);
+      }
+    }
+    load();
+  }, []);
+
   return (
     <div className="min-h-screen bg-white selection:bg-black selection:text-white">
       <Header />
@@ -109,19 +132,15 @@ export default function HomePage() {
           </RevealOnScroll>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { label: 'Anillos', img: '/img/cat-anillos.webp', link: '/catalogo?category=Anillos', mt: false },
-              { label: 'Collares', img: '/img/cat-collares.webp', link: '/catalogo?category=Collares', mt: true },
-              { label: 'Aros', img: '/img/cat-aros.webp', link: '/catalogo?category=Aros', mt: false }
-            ].map((cat, i) => (
-               <RevealOnScroll key={i} delay={i * 150} className={cat.mt ? 'md:-mt-12' : ''}>
+            {categories.map((cat, i) => (
+               <RevealOnScroll key={cat.id || i} delay={i * 150} className={i === 1 ? 'md:-mt-12' : ''}>
                  <Link 
-                   href={cat.link} 
+                   href={`/catalogo?category=${cat.name}`} 
                    className="group relative aspect-[3/4] overflow-hidden bg-[#121212] cursor-pointer block"
                  >
                     <Image 
-                      src={cat.img} 
-                      alt={cat.label} 
+                      src={cat.imageUrl || '/img/cat-anillos.webp'} 
+                      alt={cat.name} 
                       fill 
                       className="object-cover opacity-90 transition-transform duration-[1.5s] ease-out group-hover:scale-110 group-hover:opacity-100" 
                     />
@@ -130,7 +149,7 @@ export default function HomePage() {
                     <div className="absolute inset-0 flex items-end p-8 md:p-10">
                       <div className="text-white transform transition-transform duration-500 group-hover:-translate-y-2 w-full">
                         <div className="flex justify-between items-end border-b border-white/0 group-hover:border-white/50 pb-2 transition-all duration-500">
-                          <h3 className="text-2xl md:text-3xl font-serif italic tracking-wide">{cat.label}</h3>
+                          <h3 className="text-2xl md:text-3xl font-serif italic tracking-wide">{cat.name}</h3>
                           <ArrowRight className="w-4 h-4 opacity-0 -translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-500 text-white" />
                         </div>
                         <span className="text-[9px] uppercase tracking-[0.2em] font-light text-white/70 mt-2 block opacity-0 group-hover:opacity-100 transition-opacity duration-700 delay-100">

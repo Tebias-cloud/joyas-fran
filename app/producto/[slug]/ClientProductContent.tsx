@@ -9,13 +9,13 @@ import CartDrawer from '@/components/cart/CartDrawer';
 import { useCart } from '@/context/CartContext';
 import SizeGuideModal from '@/components/product/SizeGuideModal';
 import ProductAccordion from '@/components/product/ProductAccordion';
-import { Product } from './page';
+import { Product } from '@/types/product';
 
 export default function ClientProductContent({ product }: { product: Product }) {
   const { addToCart } = useCart();
 
   // Estados
-  const [activeImage, setActiveImage] = useState<string>(product.images?.[0] || product.image_url);
+  const [activeImage, setActiveImage] = useState<string>(product.images?.[0] || product.image_url || '/img/cat-anillos.webp');
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -128,7 +128,8 @@ export default function ClientProductContent({ product }: { product: Product }) 
         compare_at_price: product.compare_at_price, 
         image_url: activeImage,
         inventory: product.inventory,
-        slug: product.slug
+        slug: product.slug,
+        stock: product.stock
       }, selectedSize, quantity);
 
       setIsDrawerOpen(true);

@@ -1,56 +1,62 @@
-import { supabase } from '@/lib/supabase';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { getProductBySlug } from '@/services/productService';
 import ClientProductContent from './ClientProductContent';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { notFound } from 'next/navigation';
-
-// Definimos la interfaz del Producto
-export interface Product {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  image_url: string;
-  images?: string[];
-  sizes?: string[];
-  inventory?: Record<string, number>;
-  category?: string;
-  slug: string;
-  stock?: number;
-  compare_at_price?: number | null;
-}
+import { Product } from '@/types/product';
 
 export const dynamic = 'force-dynamic';
 
-// CORRECCIÓN NEXT.JS 15: params es ahora una Promise
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
-  
-  // 1. Desempaquetamos el slug esperando la promesa
   const { slug } = await params;
 
-  // 2. Buscamos el producto en el servidor
-  const { data: productData } = await supabase
-    .from('products')
-    .select('*')
-    .eq('slug', slug)
-    .single();
+  const supabase = await createSupabaseServerClient();
+  const product = await getProductBySlug(supabase, slug);
 
-  if (!productData) {
+  if (!product) {
     return notFound();
   }
 
-  const product = productData as Product;
+  // Normalizamos imágenes para compatibilidad con la vista
+  const images = (product.images && product.images.length > 0) 
+    ? product.images 
+    : [product.imageUrl];
 
-  // 3. Normalizamos imágenes
-  if (!product.images || product.images.length === 0) {
-    product.images = [product.image_url];
-  }
+  const legacyProduct: Product = {
+    id: product.id,
+    name: product.name,
+    price: product.price,
+    image_url: product.imageUrl,
+    images: images,
+    stock: product.stock,
+    slug: product.slug,
+    description: product.description,
+    category_id: product.categoryId,
+    category: product.categoryName,
+    sizes: product.sizes,
+    inventory: product.inventory,
+    sku: product.sku,
+    supplier_code: product.supplierCode,
+    barcode: product.barcode,
+    brand: product.brand,
+    collection: product.collection,
+    material: product.material,
+    cost_price: product.costPrice,
+    is_featured: product.isFeatured,
+    is_new: product.isNew,
+    is_active: product.isActive,
+    meta_title: product.metaTitle,
+    meta_description: product.metaDescription,
+    created_at: product.createdAt,
+    compare_at_price: product.compareAtPrice
+  };
 
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900 selection:bg-gray-100 flex flex-col">
       <Header />
       <main className="flex-grow">
-        <ClientProductContent product={product} />
+        <ClientProductContent product={legacyProduct} />
       </main>
       <Footer />
     </div>

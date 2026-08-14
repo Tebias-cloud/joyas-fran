@@ -79,8 +79,11 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             </div>
           ) : (
             cart.map((item) => {
-              // --- LOGICA DE OFERTA ---
               const hasDiscount = item.compare_at_price && item.compare_at_price > item.price;
+              const maxStock = item.selectedSize === 'Talla Única'
+                ? (item.stock || 99)
+                : (item.inventory ? (item.inventory[item.selectedSize] || 0) : 99);
+              const isMaxStockReached = item.quantity >= maxStock;
               
               return (
                 <div key={`${item.id}-${item.selectedSize}`} className="flex gap-4 animate-fade-in group">
@@ -119,7 +122,15 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                       <div className="flex items-center border border-gray-200 rounded-sm bg-white h-8">
                         <button onClick={() => updateQuantity(item.id, item.selectedSize, item.quantity - 1)} disabled={item.quantity <= 1} className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-black hover:bg-gray-50 transition-colors disabled:opacity-30"><Minus className="w-3 h-3"/></button>
                         <span className="w-8 text-center text-xs font-medium text-gray-900 select-none">{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item.id, item.selectedSize, item.quantity + 1)} className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-black hover:bg-gray-50 transition-colors"><Plus className="w-3 h-3"/></button>
+                        <button 
+                          onClick={() => updateQuantity(item.id, item.selectedSize, item.quantity + 1)} 
+                          disabled={isMaxStockReached}
+                          className={`w-8 h-full flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                            isMaxStockReached ? 'text-gray-300' : 'text-gray-500 hover:text-black hover:bg-gray-50'
+                          }`}
+                        >
+                          <Plus className="w-3 h-3"/>
+                        </button>
                       </div>
                       <button onClick={() => removeFromCart(item.id, item.selectedSize)} className="text-[10px] uppercase font-bold text-gray-400 hover:text-red-500 transition-colors border-b border-transparent hover:border-red-500 pb-0.5">Eliminar</button>
                     </div>

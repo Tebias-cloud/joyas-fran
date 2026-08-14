@@ -1,7 +1,13 @@
+import { Metadata } from 'next';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import Image from 'next/image';
 import { MapPin, Globe, Sparkles } from 'lucide-react';
+
+export const metadata: Metadata = {
+  title: 'Nuestra Esencia - Sobre Nosotros | Joyas Fran',
+  description: 'Conoce la historia de Joyas Fran. Auténtica Plata Italiana Ley 925 y diseños exclusivos seleccionados directamente desde Iquique, Chile.',
+};
 
 export default function AboutPage() {
   return (

@@ -6,7 +6,8 @@ import { ShoppingBag, Search, Menu, User as UserIcon, X, MessageCircle, Tag } fr
 import { useCart } from '@/context/CartContext';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { supabaseBrowser } from '@/lib/supabase-browser';
+import { searchProducts } from '@/services/productService';
 import { User } from '@supabase/supabase-js';
 
 // --- INTERFACES & TIPOS ---
@@ -50,11 +51,11 @@ export default function Header() {
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true), 0);
     const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await supabaseBrowser.auth.getUser();
       setUser(user);
     };
     checkUser();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabaseBrowser.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
     return () => {
@@ -81,13 +82,16 @@ export default function Header() {
       }
       setLoadingSearch(true);
       try {
-        const { data } = await supabase
-          .from('products')
-          .select('id, name, slug, price, image_url')
-          .ilike('name', `%${debouncedSearchTerm}%`)
-          .limit(5);
-
-        if (data) setSuggestions(data as SearchResult[]);
+        const data = await searchProducts(supabaseBrowser, debouncedSearchTerm, 5);
+        if (data) {
+          setSuggestions(data.map(p => ({
+            id: p.id,
+            name: p.name,
+            slug: p.slug,
+            price: p.price,
+            image_url: p.imageUrl
+          })));
+        }
       } catch (error) {
         console.error("Error buscando:", error);
       } finally {
@@ -180,9 +184,9 @@ export default function Header() {
                 <button onClick={() => setIsMenuOpen(true)} className="lg:hidden p-1 hover:bg-gray-100 rounded-full transition-colors">
                   <Menu className="w-6 h-6 text-black" strokeWidth={1} />
                 </button>
-                <button onClick={() => setIsSearchOpen(true)} className="hidden lg:flex items-center gap-2 text-gray-500 hover:text-black transition-colors group">
-                  <Search className="w-4 h-4 group-hover:scale-110 transition-transform" strokeWidth={1.5} />
-                  <span className="text-[10px] uppercase tracking-widest font-medium">Buscar</span>
+                <button onClick={() => setIsSearchOpen(true)} className="p-1 lg:p-0 hover:bg-gray-100 lg:hover:bg-transparent rounded-full lg:rounded-none transition-colors flex items-center gap-2 text-gray-500 hover:text-black group">
+                  <Search className="w-5 h-5 lg:w-4 lg:h-4 group-hover:scale-110 transition-transform" strokeWidth={1.5} />
+                  <span className="text-[10px] uppercase tracking-widest font-medium hidden lg:inline">Buscar</span>
                 </button>
               </div>
 

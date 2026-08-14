@@ -4,11 +4,12 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { Mail, Instagram, MessageCircle, Clock, MapPin, ArrowUpRight, Copy } from 'lucide-react';
 import { toast } from 'sonner';
+import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_PHONE_FORMATTED, INSTAGRAM_HANDLE, WHATSAPP_MESSAGE_DEFAULT } from '@/lib/config';
 
 export default function ContactPage() {
   
   const handleCopyEmail = () => {
-    navigator.clipboard.writeText('joyasfran925@gmail.com');
+    navigator.clipboard.writeText(CONTACT_EMAIL);
     toast.success('¡Correo copiado al portapapeles!');
   };
 
@@ -34,8 +35,7 @@ export default function ContactPage() {
             
             {/* WHATSAPP */}
             <a 
-              // Aquí está el enlace modificado con el texto predeterminado
-              href="https://wa.me/56976400158?text=Hola!%20Vengo%20de%20la%20tienda%20online%20y%20tengo%20una%20consulta." 
+              href={`https://wa.me/${CONTACT_PHONE}?text=${encodeURIComponent(WHATSAPP_MESSAGE_DEFAULT)}`} 
               target="_blank"
               rel="noopener noreferrer"
               className="group border border-gray-100 p-10 text-center hover:border-black transition-all duration-300 hover:shadow-xl bg-white block"
@@ -45,7 +45,7 @@ export default function ContactPage() {
               </div>
               <h3 className="font-serif italic text-xl mb-2">WhatsApp</h3>
               <p className="text-xs text-gray-400 uppercase tracking-widest mb-2">Respuesta Rápida</p>
-              <p className="text-sm font-medium text-gray-600 mb-6">+56 9 7640 0158</p>
+              <p className="text-sm font-medium text-gray-600 mb-6">{CONTACT_PHONE_FORMATTED}</p>
               <span className="text-sm font-bold border-b border-black pb-1 group-hover:text-gray-600 transition-colors flex items-center justify-center gap-2 w-fit mx-auto">
                 Enviar Mensaje <ArrowUpRight className="w-3 h-3" />
               </span>
@@ -53,7 +53,7 @@ export default function ContactPage() {
 
             {/* INSTAGRAM */}
             <a 
-              href="https://www.instagram.com/joyas_fran_cl/" 
+              href={`https://www.instagram.com/${INSTAGRAM_HANDLE}/`} 
               target="_blank"
               rel="noopener noreferrer"
               className="group border border-gray-100 p-10 text-center hover:border-black transition-all duration-300 hover:shadow-xl bg-white block"
@@ -63,7 +63,7 @@ export default function ContactPage() {
               </div>
               <h3 className="font-serif italic text-xl mb-2">Instagram</h3>
               <p className="text-xs text-gray-400 uppercase tracking-widest mb-2">Síguenos y Novedades</p>
-              <p className="text-sm font-medium text-gray-600 mb-6">@joyas_fran_cl</p>
+              <p className="text-sm font-medium text-gray-600 mb-6">@{INSTAGRAM_HANDLE}</p>
               <span className="text-sm font-bold border-b border-black pb-1 group-hover:text-gray-600 transition-colors flex items-center justify-center gap-2 w-fit mx-auto">
                 Ver Perfil <ArrowUpRight className="w-3 h-3" />
               </span>
@@ -79,7 +79,7 @@ export default function ContactPage() {
               </div>
               <h3 className="font-serif italic text-xl mb-2">Email</h3>
               <p className="text-xs text-gray-400 uppercase tracking-widest mb-2">Consultas Detalladas</p>
-              <p className="text-sm font-medium text-gray-600 mb-6">joyasfran925@gmail.com</p>
+              <p className="text-sm font-medium text-gray-600 mb-6">{CONTACT_EMAIL}</p>
               <span className="text-sm font-bold border-b border-black pb-1 group-hover:text-gray-600 transition-colors flex items-center justify-center gap-2 w-fit mx-auto">
                 Copiar Correo <Copy className="w-3 h-3" />
               </span>

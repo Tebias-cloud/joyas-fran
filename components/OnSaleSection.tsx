@@ -1,14 +1,31 @@
-// components/OnSaleSection.tsx
-import { supabase } from '@/lib/supabase';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { getSaleProducts } from '@/services/productService';
 import ProductCard from './ProductCard';
+import { Product } from '@/types/product';
 
 export default async function OnSaleSection() {
-  const { data: saleProducts } = await supabase
-    .from('products')
-    .select('*')
-    .gt('compare_at_price', 0) // Filtra solo los que tienen precio tachado
-    .order('created_at', { ascending: false })
-    .limit(4);
+  const supabase = await createSupabaseServerClient();
+  let saleProducts: Product[] = [];
+  try {
+    const rawProducts = await getSaleProducts(supabase, 4);
+    saleProducts = rawProducts.map(p => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      image_url: p.imageUrl,
+      images: p.images,
+      category: p.categoryName,
+      slug: p.slug,
+      stock: p.stock,
+      created_at: p.createdAt,
+      description: p.description,
+      inventory: p.inventory,
+      sizes: p.sizes,
+      compare_at_price: p.compareAtPrice
+    }));
+  } catch (error) {
+    console.error("Error loading sale products:", error);
+  }
 
   if (!saleProducts || saleProducts.length === 0) return null;
 

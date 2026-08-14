@@ -1,19 +1,10 @@
 import { NextResponse } from 'next/server';
-import { MercadoPagoConfig, Payment } from 'mercadopago';
-import { createClient } from '@supabase/supabase-js';
-
-// Usamos la Service Role Key para tener permisos de administrador en BD
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! 
-);
-
-// Inicializamos Mercado Pago
-const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN! });
+import { supabaseAdmin } from '@/lib/supabase-admin';
+import { getOrderById } from '@/services/orderService';
+import { getPaymentDetails, refundPayment } from '@/services/paymentService';
 
 export async function POST(request: Request) {
   try {
-    // Mercado Pago no usa "token_ws", usa "payment_id" y "status"
     const { payment_id, status, external_reference } = await request.json();
     console.log("🔵 Confirmando transacción MP:", { payment_id, status, external_reference });
 
@@ -21,25 +12,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: 'Pago no aprobado o cancelado por el cliente.' });
     }
 
-    // 1. Le preguntamos directamente a Mercado Pago si el pago es real y exitoso (Seguridad extra)
-    const payment = new Payment(client);
-    const paymentData = await payment.get({ id: payment_id });
+    // 1. Preguntarle directamente a Mercado Pago si el pago es real y exitoso (Seguridad extra)
+    const paymentData = await getPaymentDetails(payment_id);
 
     if (paymentData.status === 'approved') {
-      
       // Rescatamos el ID de la orden que mandamos al principio
       const orderId = external_reference || paymentData.external_reference;
 
       // 2. Buscar la orden exacta en la base de datos
-      const { data: order, error: searchError } = await supabaseAdmin
-        .from('orders')
-        .select('id, status')
-        .eq('id', orderId)
-        .single();
+      const order = await getOrderById(supabaseAdmin, orderId);
 
-      if (searchError || !order) {
-        console.error("⚠ Error admin buscando orden:", searchError);
+      if (!order) {
+        console.error("⚠ Orden no encontrada para ID:", orderId);
         return NextResponse.json({ success: true, warning: 'Orden no encontrada en BD' });
+      }
+
+      // Validar que el monto pagado coincida con el total de la orden
+      const paidAmount = paymentData.transaction_amount;
+      const orderAmount = order.totalAmount;
+
+      if (Math.round(Number(paidAmount)) !== Math.round(Number(orderAmount))) {
+        console.error(`🚨 ALERTA DE SEGURIDAD: Monto pagado (${paidAmount}) no coincide con el total de la orden (${orderAmount})`);
+        return NextResponse.json({ success: false, message: 'El monto del pago no coincide con el total del pedido.' });
       }
 
       // Si por error el cliente recarga la página de éxito, evitamos descontar stock 2 veces
@@ -55,11 +49,22 @@ export async function POST(request: Request) {
       });
 
       if (rpcError) {
-        console.error("🔴 Error al descontar stock:", rpcError);
-      } else {
-        console.log("✅ Stock descontado y orden Pagada exitosamente.");
+        console.error("🔴 Error al descontar stock (Sin stock disponible):", rpcError);
+        try {
+          await refundPayment(payment_id);
+          await supabaseAdmin
+            .from('orders')
+            .update({ status: 'Cancelado (Sin Stock)' })
+            .eq('id', order.id);
+          console.log(`✅ Pago devuelto de forma segura para la orden ${order.id} por falta de stock.`);
+          return NextResponse.json({ success: false, message: 'Disculpa, el stock de los productos se agotó antes de confirmar tu pago. Tu dinero ha sido devuelto automáticamente.' });
+        } catch (refundErr) {
+          console.error("🚨 CRÍTICO: No se pudo realizar reembolso automático para pago:", payment_id, refundErr);
+          return NextResponse.json({ success: false, message: 'Disculpa, el stock se agotó. Por favor contáctanos para procesar tu reembolso manual.' });
+        }
       }
 
+      console.log("✅ Stock descontado y orden Pagada exitosamente.");
       return NextResponse.json({ success: true, orderId: order.id });
     } 
     

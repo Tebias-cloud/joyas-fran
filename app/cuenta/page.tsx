@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import { supabase } from '@/lib/supabase';
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { 
-  Package, Truck, ChevronDown, ChevronUp, Loader2, 
+  Package, Truck, ChevronDown, Loader2, 
   LogOut, User as UserIcon, Save, MapPin, Clock, CheckCircle,
   Store, Tag // Importamos iconos nuevos
 } from 'lucide-react';
@@ -69,15 +69,6 @@ interface DatabaseOrder {
   discount_info?: DiscountInfo; // Agregamos info de descuento
 }
 
-interface Order {
-  id: string;
-  created_at: string;
-  total_amount: number;
-  status: string;
-  items: OrderItem[];
-  shipping_info: ShippingInfo;
-  discount_info?: DiscountInfo;
-}
 
 interface RegionData {
   region: string;

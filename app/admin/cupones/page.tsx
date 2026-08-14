@@ -1,23 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
 import { toast } from 'sonner';
 import { Trash2, Tag, Power, Plus, Loader2, AlertCircle } from 'lucide-react';
 
-interface Coupon {
-  id: number;
-  code: string;
-  type: 'percent' | 'fixed' | 'shipping';
-  value: number;
-  is_active: boolean;
-  used_count: number;
-  min_purchase: number;
-}
+import { Coupon } from '@/services/couponService';
+import { ADMIN_EMAIL } from '@/lib/config';
 
 export default function AdminCouponsPage() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
   
   // Estado para el formulario de nuevo cupón
   const [newCode, setNewCode] = useState('');
@@ -49,13 +44,18 @@ export default function AdminCouponsPage() {
     }
   };
 
-  // 2. EFECTO DE MONTAJE (Usa setTimeout para evitar el error de cascading renders)
+  // 2. EFECTO DE MONTAJE CON CHEQUEO DE ADMIN
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const checkAdmin = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || user.email !== ADMIN_EMAIL) {
+        router.replace('/');
+        return;
+      }
       fetchCoupons();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
+    };
+    checkAdmin();
+  }, [router]);
 
   // 3. FUNCIÓN PARA CREAR UN CUPÓN
   const createCoupon = async (e: React.FormEvent) => {

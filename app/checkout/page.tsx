@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
-import { supabase } from '@/lib/supabase';
+import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
 import { User } from '@supabase/supabase-js'; 
 import { 
   ChevronDown, ChevronUp, Loader2, ArrowLeft, X, 
@@ -105,7 +105,7 @@ const POLICY_CONTENT: Record<string, React.ReactNode> = {
 };
 
 export default function CheckoutPage() {
-  const { cart, cartTotal, clearCart } = useCart(); 
+  const { cart, cartTotal, removeFromCart, updateQuantity } = useCart();
   const router = useRouter();
   const toastShownRef = useRef(false);
 
@@ -135,7 +135,9 @@ export default function CheckoutPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const regionData = REGIONES_Y_COMUNAS.find((r: RegionData) => r.region === formData.region);
-  const comunasDisponibles: string[] = REGIONES_Y_COMUNAS.find((r: RegionData) => r.region === formData.region)?.comunas || [];
+  const comunasDisponibles = useMemo(() => {
+    return REGIONES_Y_COMUNAS.find((r: RegionData) => r.region === formData.region)?.comunas || [];
+  }, [formData.region]);
   
   const subtotal = cartTotal;
   const currentShippingPrice = deliveryMethod === 'pickup' ? 0 : (shippingRate?.price || 0);
@@ -174,7 +176,7 @@ export default function CheckoutPage() {
     }
   }, [cart, loading, router]);
 
-  // Carga inicial
+  // Carga inicial (Solo al montar)
   useEffect(() => {
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -212,37 +214,13 @@ export default function CheckoutPage() {
           region: savedRegion,
           city: savedCity
         }));
-
-        if (savedRegion && savedCity) {
-           void fetch('/api/shipping', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ region: savedRegion, city: savedCity, cartTotal })
-           }).then(res => res.json()).then(data => {
-                if (data.rate) setShippingRate(data.rate);
-           });
-        }
       }
       setLoading(false);
     };
     init();
-  }, [router, cartTotal]);
+  }, [router]);
 
-  // Efecto métodos entrega
-  useEffect(() => {
-    if (deliveryMethod === 'pickup') {
-      setShippingRate(PICKUP_RATE);
-    } else {
-      if (formData.region && formData.city) {
-        calculateShipping(formData.region, formData.city);
-      } else {
-        setShippingRate(null);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deliveryMethod]);
-
-  const calculateShipping = async (region: string, city: string) => {
+  const calculateShipping = useCallback(async (region: string, city: string) => {
     if (deliveryMethod === 'pickup') return; 
     if (!region || !city) return;
     
@@ -261,7 +239,20 @@ export default function CheckoutPage() {
     } finally {
         setCalculating(false);
     }
-  };
+  }, [deliveryMethod, cartTotal]);
+
+  // Efecto métodos entrega y cálculo automático de envíos
+  useEffect(() => {
+    if (deliveryMethod === 'pickup') {
+      setShippingRate(PICKUP_RATE);
+    } else {
+      if (formData.region && formData.city) {
+        calculateShipping(formData.region, formData.city);
+      } else {
+        setShippingRate(null);
+      }
+    }
+  }, [deliveryMethod, formData.region, formData.city, calculateShipping]);
 
   const applyCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -311,7 +302,6 @@ export default function CheckoutPage() {
         if (deliveryMethod === 'shipping') setShippingRate(null);
     } else if (name === 'city') {
         setFormData(prev => ({ ...prev, city: value }));
-        if (value && deliveryMethod === 'shipping') calculateShipping(formData.region, value);
     } else {
         setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -342,6 +332,50 @@ export default function CheckoutPage() {
     setProcessing(true);
 
     try {
+        // 0. Verificar stock real en la BD antes de crear la orden
+        // El carrito se basa en localStorage y puede estar desactualizado.
+        const stockPayload = cart.map((item) => ({
+          productId: item.id,
+          size: item.selectedSize,
+          quantity: item.quantity,
+          name: item.name,
+        }));
+
+        const stockRes = await fetch('/api/cart/validate-stock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: stockPayload }),
+        });
+
+        const stockData = await stockRes.json();
+
+        if (!stockRes.ok) {
+          throw new Error('No se pudo verificar el stock. Intenta nuevamente.');
+        }
+
+        if (!stockData.allValid && stockData.invalidItems?.length > 0) {
+          // Notificar al usuario por cada ítem con problema
+          for (const invalid of stockData.invalidItems) {
+            if (invalid.available === 0) {
+              toast.error(
+                `"${invalid.name}" ya no tiene stock disponible. Se eliminó de tu carrito.`,
+                { duration: 5000 }
+              );
+              removeFromCart(invalid.productId, invalid.size);
+            } else {
+              toast.error(
+                `"${invalid.name}" solo tiene ${invalid.available} unidad(es) disponibles. Se ajustó tu cantidad.`,
+                { duration: 5000 }
+              );
+              updateQuantity(invalid.productId, invalid.size, invalid.available);
+            }
+          }
+          // Detener el proceso: el usuario debe revisar el carrito actualizado
+          isProcessingRef.current = false;
+          setProcessing(false);
+          return;
+        }
+
         // 1. Guardar perfil si se seleccionó
         if (saveInfo) {
           const updates = {
@@ -384,23 +418,11 @@ export default function CheckoutPage() {
 
         if (rpcError) throw new Error(rpcError.message);
 
-        // 3. Forzar estado a "Pendiente Pago"
-        await supabase.from('orders').update({ status: 'Pendiente Pago' }).eq('id', orderId);
-
-        // 4. Registrar uso de Cupón
-        if (discount && orderId) {
-            const { data: cpn } = await supabase.from('coupons').select('id, used_count').eq('code', discount.code).single();
-            if (cpn) {
-                await supabase.from('coupon_usage').insert({ coupon_id: cpn.id, user_id: user.id, order_id: orderId });
-                await supabase.from('coupons').update({ used_count: cpn.used_count + 1 }).eq('id', cpn.id);
-            }
-        }
-
         // 5. Llamar a API de Mercado Pago para obtener URL de cobro
         const res = await fetch('/api/payment/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId, amount: total })
+            body: JSON.stringify({ orderId })
         });
 
         const paymentData = await res.json();
@@ -726,9 +748,53 @@ export default function CheckoutPage() {
          
          {showSummaryMobile && (
              <div className="mt-4 space-y-4 animate-fade-in border-t border-gray-200 pt-4">
-                 {cart.map((item, idx) => (
-                     <CartItemRow key={`${item.id}-${idx}-mobile`} item={item} />
-                 ))}
+                 <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                     {cart.map((item, idx) => (
+                         <CartItemRow key={`${item.id}-${idx}-mobile`} item={item} />
+                      ))}
+                 </div>
+
+                 <div className="border-t border-gray-200 pt-4 space-y-4">
+                     <div className="flex gap-2">
+                        <div className="relative flex-1">
+                            <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} disabled={!!discount} placeholder="CÓDIGO DE DESCUENTO" className="w-full p-3 border border-gray-200 rounded-sm text-sm outline-none bg-white uppercase disabled:bg-gray-100 focus:border-black transition-colors" />
+                            {discount && <X onClick={() => {setDiscount(null); setCouponCode('');}} className="absolute right-3 top-3 w-4 h-4 text-gray-400 cursor-pointer hover:text-red-500 transition-colors"/>}
+                            <Tag className="absolute right-3 top-3.5 w-4 h-4 text-gray-300 pointer-events-none" />
+                        </div>
+                        {!discount && (
+                            <button onClick={applyCoupon} disabled={validatingCoupon || !couponCode} className="bg-zinc-200 text-zinc-600 px-6 rounded-sm text-xs font-bold hover:bg-zinc-300 disabled:opacity-50 transition-colors">
+                                {validatingCoupon ? <Loader2 className="w-4 h-4 animate-spin"/> : 'USAR'}
+                            </button>
+                        )}
+                     </div>
+
+                     <div className="space-y-3 text-sm text-gray-600">
+                        <div className="flex justify-between">
+                            <span>Subtotal</span>
+                            <span className="text-gray-900 font-medium">${subtotal.toLocaleString('es-CL')}</span>
+                        </div>
+                        {discount && (
+                            <div className="flex justify-between text-green-600 items-center bg-green-50 p-2 rounded-sm -mx-2">
+                                <span className="flex items-center gap-1.5"><Tag className="w-3 h-3"/> Cupón {discount.code}</span>
+                                <span>-${discount.amount.toLocaleString('es-CL')}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between items-center">
+                            <span>Envío</span>
+                            <span className="text-gray-900 font-medium">
+                                {discount?.type === 'shipping' 
+                                    ? <span className="text-green-600">Gratis</span> 
+                                    : deliveryMethod === 'pickup'
+                                      ? 'Gratis (Retiro)'
+                                      : shippingRate 
+                                        ? shippingRate.price === 0 
+                                            ? 'Gratis' 
+                                            : `$${shippingRate.price.toLocaleString('es-CL')}` 
+                                        : <span className="text-xs text-gray-400">Por calcular</span>}
+                            </span>
+                        </div>
+                     </div>
+                 </div>
              </div>
          )}
       </div>

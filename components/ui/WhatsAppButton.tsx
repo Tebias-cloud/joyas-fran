@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { MessageCircle } from 'lucide-react';
+import { CONTACT_PHONE, WHATSAPP_MESSAGE_BUTTON } from '@/lib/config';
 
 export default function WhatsAppButton() {
   const pathname = usePathname();
@@ -13,8 +14,8 @@ export default function WhatsAppButton() {
   }
 
   // 2. FORMATO SEGURO (Solo dígitos)
-  const phoneNumber = "56976400158"; 
-  const message = "Hola Joyas Fran, tengo una duda...";
+  const phoneNumber = CONTACT_PHONE; 
+  const message = WHATSAPP_MESSAGE_BUTTON;
 
   return (
     <a

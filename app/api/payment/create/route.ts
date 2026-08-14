@@ -1,57 +1,76 @@
 import { NextResponse } from 'next/server';
-import { MercadoPagoConfig, Preference } from 'mercadopago';
-
-// Inicializamos Mercado Pago con tu Access Token
-const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN! });
+import { supabaseAdmin } from '@/lib/supabase-admin';
+import { getOrderById } from '@/services/orderService';
+import { getActiveCouponByCode, isCouponRegisteredForOrder, registerCouponUsage } from '@/services/couponService';
+import { createPaymentPreference } from '@/services/paymentService';
+import { SITE_URL } from '@/lib/config';
 
 export async function POST(request: Request) {
   try {
-    const { orderId, amount } = await request.json();
+    const { orderId } = await request.json();
 
-    // Aseguramos que el monto sea un entero positivo
-    const safeAmount = Math.floor(Number(amount));
+    if (!orderId) {
+      return NextResponse.json({ error: 'Falta orderId' }, { status: 400 });
+    }
 
-    console.log("🟢 Iniciando Mercado Pago para la orden:", orderId);
+    console.log(" 🟢 Iniciando cobro seguro para la orden:", orderId);
 
-    const preference = new Preference(client);
-    
-    // 🔥 CAMBIO PARA PRODUCCIÓN: 
-    // Usará NEXT_PUBLIC_SITE_URL cuando esté en Vercel, o localhost si estás en tu PC.
-    // (Mañana agregaremos NEXT_PUBLIC_SITE_URL en las variables de Vercel)
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    const urlSegura = `${baseUrl}/payment/result`;
+    // 1. Obtener el monto real de la orden desde la base de datos
+    const order = await getOrderById(supabaseAdmin, orderId);
 
-    // Creamos la preferencia (la orden de cobro en Mercado Pago)
-    const response = await preference.create({
-      body: {
-        items: [
-          {
-            id: orderId,
-            title: 'Compra en Joyas Fran',
-            quantity: 1,
-            unit_price: safeAmount,
-            currency_id: 'CLP',
+    if (!order) {
+      return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
+    }
+
+    // 2. Actualizar el estado de la orden a "Pendiente Pago" (Acción segura en servidor)
+    const { error: updateStatusError } = await supabaseAdmin
+      .from('orders')
+      .update({ status: 'Pendiente Pago' })
+      .eq('id', orderId);
+
+    if (updateStatusError) {
+      console.error("🔴 Error al actualizar estado de orden a Pendiente Pago:", updateStatusError);
+    }
+
+    // 3. Registrar el uso del cupón de forma segura si no está registrado aún
+    const discount = order.discountInfo;
+    if (discount && discount.code) {
+      try {
+        const coupon = await getActiveCouponByCode(supabaseAdmin, discount.code);
+        if (coupon) {
+          // Verificar si ya se registró el uso del cupón para esta orden (evitar duplicar si hay reintento de pago)
+          const alreadyRegistered = await isCouponRegisteredForOrder(supabaseAdmin, orderId, coupon.id);
+          
+          if (!alreadyRegistered) {
+            await registerCouponUsage(supabaseAdmin, {
+              couponId: coupon.id,
+              userId: order.userId || 'anonymous',
+              orderId: orderId,
+              currentUsedCount: coupon.used_count
+            });
+            console.log(`✅ Cupón ${discount.code} registrado e incrementado para la orden ${orderId}`);
           }
-        ],
-        external_reference: orderId, 
-        
-        back_urls: {
-          success: urlSegura,
-          failure: urlSegura,
-          pending: urlSegura
-        },
-        
-        // 🔥 CAMBIO PARA PRODUCCIÓN: 
-        // Activamos el retorno automático. Como Vercel usa "https://", 
-        // Mercado Pago devolverá al cliente a tu tienda en 3 segundos sin hacer clic.
-        auto_return: 'approved',
+        }
+      } catch (err) {
+        console.error("🔴 Error procesando cupón en servidor:", err);
       }
+    }
+
+    const safeAmount = Math.floor(Number(order.totalAmount));
+    if (isNaN(safeAmount) || safeAmount <= 0) {
+      return NextResponse.json({ error: 'Monto de orden inválido' }, { status: 400 });
+    }
+
+    // 4. Crear la preferencia de pago en Mercado Pago usando el servicio
+    const preference = await createPaymentPreference({
+      orderId,
+      amount: safeAmount,
+      baseUrl: SITE_URL
     });
 
-    // Usamos el init_point normal para evitar el bug de redirecciones infinitas del Sandbox
     return NextResponse.json({
-      url: response.init_point, 
-      token: response.id 
+      url: preference.initPoint, 
+      token: preference.id 
     });
 
   } catch (error) {

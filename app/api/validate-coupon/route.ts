@@ -1,26 +1,33 @@
-import { createClient } from '@supabase/supabase-js';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { getActiveCouponByCode, hasUserUsedCoupon } from '@/services/couponService';
+import { ValidateCouponRequestSchema } from '@/lib/validators';
 import { NextResponse } from 'next/server';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export async function POST(request: Request) {
   try {
-    const { code, cartTotal, userId } = await request.json();
-    const cleanCode = code.toUpperCase().trim();
+    const body = await request.json();
+    const result = ValidateCouponRequestSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json({ error: result.error.issues[0]?.message || 'Parámetros inválidos' }, { status: 400 });
+    }
+
+    const { code, cartTotal, userId } = result.data;
+
+    const supabase = await createSupabaseServerClient();
 
     // 1. Buscar cupón activo
-    const { data: coupon, error } = await supabase
-      .from('coupons')
-      .select('*')
-      .eq('code', cleanCode)
-      .eq('is_active', true)
-      .single();
+    const coupon = await getActiveCouponByCode(supabase, code);
 
-    if (error || !coupon) {
+    if (!coupon) {
       return NextResponse.json({ error: 'Cupón inválido o no existe' }, { status: 404 });
+    }
+
+    // 1.5 Validar si el usuario ya usó este cupón
+    if (userId) {
+      const used = await hasUserUsedCoupon(supabase, userId, coupon.id);
+      if (used) {
+        return NextResponse.json({ error: 'Ya has utilizado este cupón' }, { status: 400 });
+      }
     }
 
     // 2. Validar compra mínima
@@ -47,6 +54,7 @@ export async function POST(request: Request) {
     });
 
   } catch (err) {
+    console.error('Error validating coupon:', err);
     return NextResponse.json({ error: 'Error en el servidor' }, { status: 500 });
   }
 }

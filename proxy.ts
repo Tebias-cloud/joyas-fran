@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { ADMIN_EMAIL } from '@/lib/config';
 
 export async function proxy(request: NextRequest) {
   // 1. Crear una respuesta inicial
@@ -9,17 +10,17 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  // 2. Configurar el cliente de Supabase para Middleware
+  // 2. Configurar el cliente de Supabase para Middleware/Proxy
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder',
     {
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value));
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           response = NextResponse.next({
             request: {
               headers: request.headers,
@@ -33,8 +34,7 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // 3. Verificar sesión del usuario
-  // IMPORTANTE: Usamos getUser() para validar la sesión de forma segura
+  // 3. Verificar sesión del usuario de forma segura
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -52,13 +52,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // 5. Protección Admin (Opcional - Descomenta si quieres proteger /admin por email)
-  /*
-  const ADMIN_EMAIL = 'esteban.contacto14@gmail.com';
-  if (request.nextUrl.pathname.startsWith('/admin') && user?.email !== ADMIN_EMAIL) {
-     return NextResponse.redirect(new URL('/', request.url));
+  // 5. Protección Admin por Correo Electrónico
+  // Si ADMIN_EMAIL no está configurado, bloquear acceso a /admin sin excepción.
+  if (request.nextUrl.pathname.startsWith('/admin')) {
+    if (!ADMIN_EMAIL || user?.email !== ADMIN_EMAIL) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
   }
-  */
 
   return response;
 }
@@ -67,7 +67,7 @@ export const config = {
   matcher: [
     /*
      * Coincide con todas las rutas excepto:
-     * - api (rutas de backend) -> ¡ESTO ES LO QUE ARREGLA EL ERROR 404!
+     * - api (rutas de backend)
      * - _next/static (archivos estáticos)
      * - _next/image (optimización de imágenes)
      * - favicon.ico (icono)

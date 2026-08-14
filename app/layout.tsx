@@ -3,7 +3,8 @@ import { Playfair_Display, Lato } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { Metadata } from 'next';
 import { CartProvider } from '@/context/CartContext'; 
-import WhatsAppButton from '@/components/ui/WhatsAppButton'; // <--- NUEVA IMPORTACIÓN
+import WhatsAppButton from '@/components/ui/WhatsAppButton';
+import { SITE_URL } from '@/lib/config';
 
 // Optimización de fuentes: 'swap' evita el texto invisible mientras carga
 const playfair = Playfair_Display({ 
@@ -20,7 +21,7 @@ const lato = Lato({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://joyasfran.cl'), // Recuerda cambiar esto por tu dominio real si compras uno
+  metadataBase: new URL(SITE_URL), // Recuerda cambiar esto por tu dominio real si compras uno
   title: {
     template: '%s | Joyas Fran',
     default: 'Joyas Fran | Plata Ley 925 y Diseño Exclusivo',
@@ -29,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Joyas Fran | Plata Ley 925',
     description: 'Descubre nuestra colección exclusiva de joyas importadas.',
-    url: 'https://joyasfran.cl',
+    url: SITE_URL,
     siteName: 'Joyas Fran',
     locale: 'es_CL',
     type: 'website',

@@ -56,7 +56,7 @@ function PaymentResultContent() {
           setStatus('error');
           setMessage(data.message || 'El pago fue rechazado al verificar.');
         }
-      } catch (error) {
+      } catch {
         setStatus('error');
         setMessage('Error de conexión al verificar el pago.');
       }

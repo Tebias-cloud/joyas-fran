@@ -1,39 +1,45 @@
 import { Suspense } from 'react';
-import { supabase } from '@/lib/supabase';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import OfertasClient from './OfertasClient'; // Importación local directa
-import { Product } from '@/app/catalogo/page'; // Importación de tipos centralizada
 
 export const metadata = {
   title: 'Ofertas Exclusivas | Joyas Fran',
   description: 'Aprovecha nuestros descuentos especiales en joyas seleccionadas.',
 };
 
-async function getSaleProducts() {
-  // 1. Traemos productos que tengan algo en la columna compare_at_price
-  const { data } = await supabase
-    .from('products')
-    .select('*')
-    .not('compare_at_price', 'is', null)
-    .order('created_at', { ascending: false });
+import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { getSaleProducts } from '@/services/productService';
+import { Product } from '@/app/catalogo/page';
 
-  // Casting seguro: si data es null, usamos array vacío
-  const products = (data as Product[]) || [];
-
-  // 2. Filtro de seguridad: Aseguramos que sea una oferta real
-  // (El precio tachado debe ser MAYOR al precio de venta)
-  const validSales = products.filter(p => 
-    p.compare_at_price !== null && 
-    p.compare_at_price !== undefined && 
-    p.compare_at_price > p.price
-  );
-
-  return validSales;
+async function fetchSaleProducts() {
+  const supabase = await createSupabaseServerClient();
+  try {
+    return await getSaleProducts(supabase, 50); // Límite de 50 productos en oferta
+  } catch (error) {
+    console.error("Error loading sale products for ofertas page:", error);
+    return [];
+  }
 }
 
 export default async function OfertasPage() {
-  const saleProducts = await getSaleProducts();
+  const saleProducts = await fetchSaleProducts();
+
+  const legacyProducts: Product[] = saleProducts.map(p => ({
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    image_url: p.imageUrl,
+    images: p.images,
+    category: p.categoryName,
+    slug: p.slug,
+    stock: p.stock,
+    created_at: p.createdAt,
+    description: p.description,
+    inventory: p.inventory,
+    sizes: p.sizes,
+    compare_at_price: p.compareAtPrice
+  }));
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -45,7 +51,7 @@ export default async function OfertasPage() {
         </div>
         
         <Suspense fallback={<div className="py-20 text-center text-gray-400">Cargando ofertas...</div>}>
-          <OfertasClient initialProducts={saleProducts} />
+          <OfertasClient initialProducts={legacyProducts} />
         </Suspense>
       </main>
       <Footer />
