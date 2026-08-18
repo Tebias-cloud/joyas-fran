@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { ADMIN_EMAIL } from '@/lib/config';
@@ -28,7 +28,9 @@ export async function POST(request: NextRequest) {
       }
     );
     const { data: { user } } = await supabase.auth.getUser();
-    const isUserAdmin = user?.app_metadata?.role === 'admin';
+    const isUserAdmin =
+      user?.app_metadata?.role === 'admin' ||
+      (!!ADMIN_EMAIL && user?.email === ADMIN_EMAIL);
 
     if (!user || !isUserAdmin) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
@@ -36,10 +38,11 @@ export async function POST(request: NextRequest) {
 
     // 2. Parsear body
     const body = await request.json();
-    const { imageUrl, category, currentName } = body as {
+    const { imageUrl, category, currentName, mode } = body as {
       imageUrl: string;
       category: string;
       currentName: string;
+      mode?: 'name' | 'description';
     };
 
     if (!imageUrl) {
@@ -53,9 +56,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Inicializar Gemini 2.5 Flash
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    // 3. Inicializar nuevo SDK @google/genai
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     // 4. Descargar imagen para base64
     const response = await fetch(imageUrl);
@@ -64,14 +66,22 @@ export async function POST(request: NextRequest) {
     const base64 = Buffer.from(arrayBuffer).toString('base64');
     const mimeType = response.headers.get('content-type') || 'image/webp';
 
-    // 5. Prompt enfocado solo en generar un nombre alternativo
-    const categoryCtx = category ? ` Esta joya es de la categoría "${category}".` : '';
-    const avoidCtx = currentName
-      ? ` El nombre anterior fue "${currentName}", por favor sugiere algo diferente pero coherente con la misma joya.`
-      : '';
+    // 5. Prompt enfocado según el modo
+    let prompt = '';
+    if (mode === 'description') {
+      prompt = `Mira esta imagen de una joya de Plata Ley 925 para una tienda chilena llamada "Joyas Fran". El nombre de la joya es "${currentName || 'Joya sin nombre'}".
+      
+Sugerir una descripción comercial breve (máximo 250 caracteres) en español, atractiva y elegante, apropiada para una tienda online de joyas.
+Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional ni bloques de código:
+{"description": "la descripción aquí del producto"}`;
+    } else {
+      const categoryCtx = category ? ` Esta joya es de la categoría "${category}".` : '';
+      const avoidCtx = currentName
+        ? ` El nombre anterior fue "${currentName}", por favor sugiere algo diferente pero coherente con la misma joya.`
+        : '';
 
-    const prompt = `Mira esta imagen de una joya de Plata Ley 925 para una tienda chilena llamada "Joyas Fran".${categoryCtx}${avoidCtx}
-
+      prompt = `Mira esta imagen de una joya de Plata Ley 925 para una tienda chilena llamada "Joyas Fran".${categoryCtx}${avoidCtx}
+ 
 Sugiere UN SOLO nombre comercial en español para esta joya. El nombre debe:
 - Ser descriptivo y atractivo para una tienda de joyería
 - Tener entre 4 y 60 caracteres
@@ -79,20 +89,29 @@ Sugiere UN SOLO nombre comercial en español para esta joya. El nombre debe:
 - NO incluir la marca "Joyas Fran"
 - NO mencionar el material ni la pureza
 - Ser diferente al nombre anterior si se indicó uno
-
+ 
 Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional ni bloques de código:
 {"name": "el nombre aquí"}`;
+    }
 
-    // 6. Llamar a Gemini
-    const result = await model.generateContent([
-      { inlineData: { mimeType, data: base64 } },
-      prompt,
-    ]);
+    // 6. Llamar a Gemini con nuevo SDK
+    const result = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType, data: base64 } },
+            { text: prompt },
+          ],
+        },
+      ],
+    });
 
-    const rawText = result.response.text().trim();
+    const rawText = result.text?.trim() ?? '';
 
     // 7. Parsear respuesta
-    let parsed: { name: string };
+    let parsed: any;
     try {
       const jsonText = rawText
         .replace(/^```(?:json)?\s*/i, '')
@@ -107,14 +126,23 @@ Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional ni bloques 
       );
     }
 
-    if (!parsed.name || typeof parsed.name !== 'string' || parsed.name.trim().length < 3) {
-      return NextResponse.json(
-        { error: 'No se pudo generar un nombre alternativo. Intenta de nuevo.' },
-        { status: 422 }
-      );
+    if (mode === 'description') {
+      if (!parsed.description || typeof parsed.description !== 'string' || parsed.description.trim().length < 5) {
+        return NextResponse.json(
+          { error: 'No se pudo generar una descripción. Intenta de nuevo.' },
+          { status: 422 }
+        );
+      }
+      return NextResponse.json({ description: parsed.description.trim() });
+    } else {
+      if (!parsed.name || typeof parsed.name !== 'string' || parsed.name.trim().length < 3) {
+        return NextResponse.json(
+          { error: 'No se pudo generar un nombre alternativo. Intenta de nuevo.' },
+          { status: 422 }
+        );
+      }
+      return NextResponse.json({ name: parsed.name.trim() });
     }
-
-    return NextResponse.json({ name: parsed.name.trim() });
 
   } catch (error) {
     console.error('[suggest-name] Unexpected error:', error);

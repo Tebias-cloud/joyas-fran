@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { Trash2, Tag, Power, Plus, Loader2, AlertCircle } from 'lucide-react';
 
 import { Coupon } from '@/services/couponService';
-import { ADMIN_EMAIL } from '@/lib/config';
 
 export default function AdminCouponsPage() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -45,14 +44,21 @@ export default function AdminCouponsPage() {
   };
 
   // 2. EFECTO DE MONTAJE CON CHEQUEO DE ADMIN
+  // La verificación real ocurre en el servidor (/api/admin/verify).
+  // ADMIN_EMAIL no se expone al cliente — es un secreto de servidor.
   useEffect(() => {
     const checkAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || user.email !== ADMIN_EMAIL) {
+      try {
+        const res = await fetch('/api/admin/verify');
+        const data = await res.json();
+        if (!res.ok || !data.isAdmin) {
+          router.replace('/');
+          return;
+        }
+        fetchCoupons();
+      } catch {
         router.replace('/');
-        return;
       }
-      fetchCoupons();
     };
     checkAdmin();
   }, [router]);

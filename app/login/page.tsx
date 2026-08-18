@@ -83,8 +83,8 @@ function AuthContent() {
         }
         
         toast.success('¡Bienvenido de vuelta!');
-        router.replace(redirectPath);
-        router.refresh();
+        // Hard navigation para que el proxy SSR pueda leer las cookies de sesión
+        window.location.href = redirectPath;
       } 
       else if (mode === 'register') {
         if (!formData.firstName.trim() || !formData.lastName.trim()) {

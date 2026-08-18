@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { ADMIN_EMAIL } from '@/lib/config';
@@ -18,17 +18,6 @@ interface GeminiScanResponse {
   collection: string | null;
   meta_title: string;
   meta_description: string;
-}
-
-// ─── Helper: imagen URL → base64 ─────────────────────────────────────────────
-
-async function getImageBase64(imageUrl: string): Promise<{ base64: string; mimeType: string }> {
-  const response = await fetch(imageUrl);
-  if (!response.ok) throw new Error(`Error al descargar la imagen: HTTP ${response.status}`);
-  const arrayBuffer = await response.arrayBuffer();
-  const base64 = Buffer.from(arrayBuffer).toString('base64');
-  const mimeType = response.headers.get('content-type') || 'image/webp';
-  return { base64, mimeType };
 }
 
 // ─── Helper: auth admin ───────────────────────────────────────────────────────
@@ -56,7 +45,6 @@ async function getAdminUser() {
 // ─── Helper: obtener categorías desde Supabase ───────────────────────────────
 
 async function getCategories(): Promise<DBCategory[]> {
-  // Usa service role si está disponible; si no, anon key (las categorías son públicas en RLS)
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -76,48 +64,64 @@ async function getCategories(): Promise<DBCategory[]> {
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Auth — solo admin puede acceder
+    // 1. Auth
+    console.log('[scanner] STEP 1: verificando autenticación...');
     const user = await getAdminUser();
-    const isUserAdmin = user?.app_metadata?.role === 'admin';
+    const isUserAdmin =
+      user?.app_metadata?.role === 'admin' ||
+      (!!ADMIN_EMAIL && user?.email === ADMIN_EMAIL);
+
+    console.log('[scanner] auth: user presente:', !!user, '| es admin:', isUserAdmin);
 
     if (!user || !isUserAdmin) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
+    console.log('[scanner] STEP 1 OK');
 
-    // 2. Parsear body
+    // 2. Body
+    console.log('[scanner] STEP 2: parseando body...');
     const body = await request.json();
     const { imageUrl } = body as { imageUrl: string };
 
     if (!imageUrl) {
       return NextResponse.json({ error: 'imageUrl es requerido' }, { status: 400 });
     }
+    console.log('[scanner] STEP 2 OK: imageUrl longitud:', imageUrl.length);
 
+    // 3. API Key
+    console.log('[scanner] STEP 3: verificando GEMINI_API_KEY...');
     if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json(
-        { error: 'GEMINI_API_KEY no configurada en el servidor' },
-        { status: 500 }
-      );
+      console.log('[scanner] ERROR: GEMINI_API_KEY no definida');
+      return NextResponse.json({ error: 'GEMINI_API_KEY no configurada' }, { status: 500 });
     }
+    console.log('[scanner] STEP 3 OK: key presente');
 
-    // 3. Obtener categorías desde Supabase (fuente de verdad en servidor)
+    // 4. Categorías
+    console.log('[scanner] STEP 4: obteniendo categorías...');
     const categories = await getCategories();
     const categoryList = categories.length > 0
       ? categories.map(c => c.name).join(' | ')
-      : 'Anillos | Collares | Aros | Pulseras';  // Fallback si BD vacía
+      : 'Anillos | Collares | Aros | Pulseras';
+    console.log('[scanner] STEP 4 OK:', categories.length, 'categorías →', categoryList);
 
-    // 4. Inicializar Gemini 2.5 Flash
-    //    → Modelo estable de Google (no preview, no deprecated).
-    //    → Mejor price-performance para tareas multimodal de baja latencia.
-    //    → Documentación oficial: https://ai.google.dev/gemini-api/docs/models
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    // 5. Descargar imagen y convertir a base64
+    console.log('[scanner] STEP 5: descargando imagen...');
+    const imgResponse = await fetch(imageUrl);
+    if (!imgResponse.ok) {
+      throw new Error(`Error al descargar imagen: HTTP ${imgResponse.status}`);
+    }
+    const arrayBuffer = await imgResponse.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    const mimeType = imgResponse.headers.get('content-type') || 'image/webp';
+    const sizeKB = Math.round((base64.length * 3) / 4 / 1024);
+    console.log('[scanner] STEP 5 OK:', mimeType, '-', sizeKB, 'KB');
 
-    // 5. Descargar imagen desde Supabase CDN y convertir a base64
-    const { base64, mimeType } = await getImageBase64(imageUrl);
+    // 6. Inicializar nuevo SDK @google/genai
+    console.log('[scanner] STEP 6: inicializando @google/genai...');
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    console.log('[scanner] STEP 6 OK');
 
-    // 6. Prompt estructurado
-    //    — El material está fijo como "Plata Ley 925" (no se pide a Gemini que lo detecte)
-    //    — La categoría debe ser exactamente una de las opciones de la BD
+    // 7. Prompt
     const prompt = `Analiza la imagen de esta joya para una tienda chilena de plata llamada "Joyas Fran".
 
 Responde ÚNICAMENTE con un objeto JSON válido. Sin texto adicional, sin bloques de código markdown. Solo el JSON puro.
@@ -134,21 +138,68 @@ El JSON debe seguir EXACTAMENTE este esquema:
 }
 
 Reglas estrictas:
-- NO menciones el material, la pureza ni el metal en ningún campo. Ese dato lo gestiona la tienda.
-- NO inventes ni sugieras precios, costos, stock ni SKU.
-- La categoría DEBE ser exactamente una de las opciones listadas, con la misma capitalización.
+- NO menciones el material, la pureza ni el metal en ningún campo.
+- NO inventes precios, costos, stock ni SKU.
+- La categoría DEBE ser exactamente una de las opciones listadas.
 - Si la imagen no muestra una joya claramente, devuelve valores genéricos apropiados.
-- Usa el género gramatical correcto en español (ej: "anillo" vs "collar").`;
+- Usa el género gramatical correcto en español.`;
 
-    // 7. Llamar a Gemini (imagen inline + prompt de texto)
-    const result = await model.generateContent([
-      { inlineData: { mimeType, data: base64 } },
-      prompt,
-    ]);
+    // 8. Llamar a Gemini — retry automático ante 503 (sobrecarga temporal)
+    // Modelos en orden de preferencia, todos confirmados funcionales con esta key.
+    const MODELS = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
+    const MAX_RETRIES = 3;
+    const contents = [
+      {
+        role: 'user' as const,
+        parts: [
+          { inlineData: { mimeType, data: base64 } },
+          { text: prompt },
+        ],
+      },
+    ];
 
-    const rawText = result.response.text().trim();
+    let rawText = '';
+    let lastError: Error | null = null;
 
-    // 8. Parsear JSON — strip de posibles bloques markdown defensivo
+    outerLoop: for (const modelName of MODELS) {
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          console.log(`[scanner] STEP 8: intento ${attempt}/${MAX_RETRIES} con ${modelName}...`);
+          const result = await ai.models.generateContent({ model: modelName, contents });
+          rawText = result.text?.trim() ?? '';
+          console.log(`[scanner] STEP 8 OK: ${modelName} respondió (${rawText.length} chars)`);
+          break outerLoop;
+        } catch (err) {
+          lastError = err instanceof Error ? err : new Error(String(err));
+          const is503 = lastError.message.includes('503') || lastError.message.includes('UNAVAILABLE');
+          const is404 = lastError.message.includes('404') || lastError.message.includes('NOT_FOUND');
+
+          if (is404) {
+            console.log(`[scanner] ${modelName} no disponible (404), probando siguiente modelo...`);
+            break; // pasar al siguiente modelo
+          }
+          if (is503 && attempt < MAX_RETRIES) {
+            const waitMs = attempt * 2000;
+            console.log(`[scanner] ${modelName} sobrecargado (503), reintentando en ${waitMs}ms...`);
+            await new Promise(r => setTimeout(r, waitMs));
+            continue;
+          }
+          // Otro error o se agotaron reintentos
+          console.error(`[scanner] ${modelName} falló definitivamente:`, lastError.message.substring(0, 120));
+          break; // probar siguiente modelo
+        }
+      }
+    }
+
+    if (!rawText) {
+      console.error('[scanner] ERROR STEP 8: todos los modelos fallaron. Último error:', lastError?.message?.substring(0, 200));
+      throw lastError ?? new Error('Gemini no respondió');
+    }
+
+    console.log('[scanner] Gemini raw (primeros 200 chars):', rawText.substring(0, 200));
+
+    // 9. Parsear JSON
+    console.log('[scanner] STEP 9: parseando JSON...');
     let parsed: GeminiScanResponse;
     try {
       const jsonText = rawText
@@ -156,46 +207,54 @@ Reglas estrictas:
         .replace(/```\s*$/i, '')
         .trim();
       parsed = JSON.parse(jsonText);
-    } catch {
-      console.error('[product-scanner] JSON parse error. Raw:', rawText);
+      console.log('[scanner] STEP 9 OK');
+    } catch (parseErr) {
+      console.error('[scanner] ERROR STEP 9: JSON parse falló:', parseErr instanceof Error ? parseErr.message : parseErr);
+      console.error('[scanner] raw text completo:', rawText);
       return NextResponse.json(
         { error: 'La IA devolvió una respuesta inválida. Intenta de nuevo.' },
         { status: 422 }
       );
     }
 
-    // 9. Validación de campos requeridos
+    // 10. Validar campos
+    console.log('[scanner] STEP 10: validando campos...');
     if (!parsed.name || !parsed.description || !parsed.category) {
+      console.log('[scanner] ERROR STEP 10: campos faltantes');
       return NextResponse.json(
-        { error: 'La IA no pudo identificar la joya correctamente. Intenta con otra foto.' },
+        { error: 'La IA no pudo identificar la joya. Intenta con otra foto.' },
         { status: 422 }
       );
     }
 
-    // 10. Resolver category_id desde categorías de la BD (case-insensitive)
+    // 11. Resolver category_id
     const matchedCategory = categories.find(
       c => c.name.toLowerCase() === parsed.category.toLowerCase()
     );
-
-    // 11. Validar que la categoría devuelta existe en BD
-    //     Si no hay match, dejamos category_id null para que la usuaria la seleccione.
     const validCategory = matchedCategory?.name ?? parsed.category;
     const validCategoryId = matchedCategory?.id ?? null;
+    console.log('[scanner] STEP 11 OK: category_id =', validCategoryId, '| category =', validCategory);
 
-    // 12. Respuesta enriquecida (material siempre fijo en "Plata Ley 925")
+    // 12. Respuesta
+    console.log('[scanner] STEP 12: enviando respuesta al cliente ✓');
     return NextResponse.json({
       name: parsed.name.trim(),
       description: parsed.description.trim(),
       category: validCategory,
       category_id: validCategoryId,
-      material: 'Plata Ley 925',   // ← siempre fijo, Gemini no decide el material
+      material: 'Plata Ley 925',
       collection: parsed.collection?.trim() || null,
       meta_title: parsed.meta_title?.trim() || `${parsed.name} | Joyas Fran`,
       meta_description: parsed.meta_description?.trim() || parsed.description,
     });
 
   } catch (error) {
-    console.error('[product-scanner] Unexpected error:', error);
+    console.error('[scanner] ERROR INESPERADO (catch global):');
+    console.error('[scanner] tipo:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('[scanner] mensaje:', error instanceof Error ? error.message : String(error));
+    if (error instanceof Error && error.stack) {
+      console.error('[scanner] stack (5 líneas):', error.stack.split('\n').slice(0, 5).join('\n'));
+    }
     return NextResponse.json(
       { error: 'Error inesperado al analizar la imagen. Intenta de nuevo.' },
       { status: 500 }

@@ -3,6 +3,12 @@
  */
 
 /**
+ * Material fijo de todos los productos de Joyas Fran.
+ * Cambiar aquí actualiza el valor en todo el sistema.
+ */
+export const DEFAULT_MATERIAL = 'Plata Ley 925';
+
+/**
  * Convierte un archivo de imagen a formato WebP con resolución máxima de 1200x1200
  * y calidad de compresión del 80% antes de subirlo al storage.
  */

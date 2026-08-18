@@ -1,11 +1,10 @@
 'use client';
 
+import { convertToWebp } from '@/lib/images';
 import { useState, useRef } from 'react';
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
 import { X, Camera, ImageIcon, Loader2, AlertTriangle, CheckCircle2, RefreshCcw, Sparkles } from 'lucide-react';
 import Image from 'next/image';
-
-// ─── Tipos ───────────────────────────────────────────────────────────────────
 
 interface Category {
   id: number;
@@ -32,8 +31,6 @@ interface PhotoScannerModalProps {
 
 type ScanStep = 'select' | 'uploading' | 'scanning' | 'result' | 'error';
 
-// ─── Editable result state ────────────────────────────────────────────────────
-
 interface EditableResult {
   name: string;
   description: string;
@@ -43,39 +40,6 @@ interface EditableResult {
   meta_title: string;
   meta_description: string;
 }
-
-// ─── Helper: convertir imagen a WebP (mismo enfoque que admin/page.tsx) ───────
-
-const convertToWebp = (file: File): Promise<Blob> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new window.Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_SIZE = 1200;
-        let { width, height } = img;
-        if (width > height) {
-          if (width > MAX_SIZE) { height = Math.round(height * MAX_SIZE / width); width = MAX_SIZE; }
-        } else {
-          if (height > MAX_SIZE) { width = Math.round(width * MAX_SIZE / height); height = MAX_SIZE; }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error('Canvas to Blob failed'));
-        }, 'image/webp', 0.85);
-      };
-      img.onerror = reject;
-    };
-    reader.onerror = reject;
-  });
-};
 
 // ─── Helper: eliminar archivo temporal de Supabase Storage ───────────────────
 
@@ -146,9 +110,9 @@ export default function PhotoScannerModal({ categories, onResult, onClose }: Pho
       setUploadedUrl(publicUrl);
       setUploadedFileName(fileName); // guardamos para poder borrar si la usuaria cancela
 
-      // 4. Llamar al servidor para analizar con Gemini
+      // 4. Llamar al servidor para analizar la foto
       setStep('scanning');
-      setStatusText('Analizando con IA...');
+      setStatusText('Analizando foto...');
 
       // El servidor obtiene las categorías desde Supabase directamente.
       // No enviamos categorías desde el cliente.
@@ -177,8 +141,8 @@ export default function PhotoScannerModal({ categories, onResult, onClose }: Pho
       setStep('result');
 
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Error inesperado';
-      setErrorMsg(message);
+      console.error('Error scanning photo:', err);
+      setErrorMsg('No pudimos analizar la foto. Intenta nuevamente.');
       setStep('error');
     }
   };
@@ -286,8 +250,8 @@ export default function PhotoScannerModal({ categories, onResult, onClose }: Pho
               <Sparkles size={14} className="text-white" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-gray-900">Crear Joya con IA</h2>
-              <p className="text-[10px] text-gray-500">Saca una foto → la IA completa el formulario</p>
+              <h2 className="text-sm font-bold text-gray-900">Completar información con una foto</h2>
+              <p className="text-[10px] text-gray-500">Te ayudaremos a preparar el nombre, descripción y categoría</p>
             </div>
           </div>
           <button
@@ -305,7 +269,7 @@ export default function PhotoScannerModal({ categories, onResult, onClose }: Pho
           {step === 'select' && (
             <div className="space-y-4">
               <p className="text-xs text-gray-500 text-center">
-                Elige cómo tomar o subir la foto de la joya
+                Sube una foto de la joya y te ayudaremos a preparar el nombre, la descripción y la categoría.
               </p>
 
               {/* Cámara */}
@@ -386,7 +350,7 @@ export default function PhotoScannerModal({ categories, onResult, onClose }: Pho
                 <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${step === 'scanning' ? 'bg-violet-500 animate-pulse' : 'bg-gray-300'}`} />
                   <span className={`text-[11px] font-medium ${step === 'scanning' ? 'text-violet-700' : 'text-gray-400'}`}>
-                    Analizando con Gemini AI
+                    Preparando información...
                   </span>
                 </div>
               </div>
@@ -405,7 +369,7 @@ export default function PhotoScannerModal({ categories, onResult, onClose }: Pho
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 size={14} className="text-green-500" />
                     <span className="text-[10px] font-bold text-green-600 uppercase tracking-wide">
-                      Joya identificada — revisa y edita
+                      Información preparada — revisa y modifica lo que necesites antes de continuar.
                     </span>
                   </div>
                 </div>
@@ -500,7 +464,7 @@ export default function PhotoScannerModal({ categories, onResult, onClose }: Pho
               <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
                 <AlertTriangle size={13} className="text-amber-500 flex-shrink-0 mt-0.5" />
                 <p className="text-[10px] text-amber-700">
-                  Precio, stock y SKU se completan en el formulario siguiente.
+                  El precio y el stock se completan en el formulario principal.
                 </p>
               </div>
 
