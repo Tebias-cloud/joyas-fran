@@ -3,7 +3,7 @@
  * Todos los tabs del admin importan desde aquí.
  */
 
-export type TabView = 'resumen' | 'pedidos' | 'productos' | 'categorias' | 'descuentos' | 'config';
+export type TabView = 'inicio' | 'pedidos' | 'productos' | 'categorias' | 'descuentos' | 'ajustes';
 export type OrderStatus = 'Pagado' | 'Preparando' | 'Enviado' | 'Entregado';
 
 export type SizeMap = Record<string, string[]>;

@@ -5,7 +5,7 @@ import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import { ClipboardList, Tag, Percent, Settings } from 'lucide-react';
+import { ClipboardList, Tag, Percent, Settings, LayoutDashboard } from 'lucide-react';
 import { toast } from 'sonner';
 
 import DiscountsTab from './_components/DiscountsTab';
@@ -13,6 +13,8 @@ import PhotoScannerModal from './_components/PhotoScannerModal';
 import OrdersTab from './_components/OrdersTab';
 import CategoriesTab from './_components/CategoriesTab';
 import ProductsTab, { EMPTY_PRODUCT_FORM } from './_components/ProductsTab';
+import DashboardTab from './_components/DashboardTab';
+import SettingsTab from './_components/SettingsTab';
 import { DEFAULT_MATERIAL } from './_utils';
 
 import {
@@ -34,9 +36,11 @@ import {
 // ─── Nav Tabs config ─────────────────────────────────────────────────────────
 
 const NAV_TABS = [
-  { id: 'pedidos', label: 'Pedidos e Inicio', icon: ClipboardList },
+  { id: 'inicio', label: 'Inicio', icon: LayoutDashboard },
+  { id: 'pedidos', label: 'Pedidos', icon: ClipboardList },
   { id: 'productos', label: 'Catálogo', icon: Tag },
   { id: 'descuentos', label: 'Promociones', icon: Percent },
+  { id: 'ajustes', label: 'Ajustes', icon: Settings },
 ] as const;
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -46,7 +50,7 @@ export default function AdminPage() {
 
   // ── Data ────────────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabView>('pedidos');
+  const [activeTab, setActiveTab] = useState<TabView>('inicio');
   const [activeSubTab, setActiveSubTab] = useState<'productos' | 'categorias'>('productos');
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -570,7 +574,19 @@ export default function AdminPage() {
       {/* Contenido */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 flex-grow w-full pb-20 md:pb-8 animate-fade-in">
 
-        {/* PEDIDOS E INICIO */}
+        {/* INICIO */}
+        {activeTab === 'inicio' && (
+          <DashboardTab
+            orders={orders}
+            products={products}
+            onViewReplenishmentProducts={() => {
+              setActiveTab('productos');
+              setActiveSubTab('productos');
+            }}
+          />
+        )}
+
+        {/* PEDIDOS */}
         {activeTab === 'pedidos' && (
           <OrdersTab
             orders={orders}
@@ -654,6 +670,15 @@ export default function AdminPage() {
             handleSaveCoupon={handleSaveCoupon}
             handleEditCouponClick={handleEditCouponClick}
             handleDeleteCoupon={handleDeleteCoupon}
+          />
+        )}
+
+        {/* AJUSTES */}
+        {activeTab === 'ajustes' && (
+          <SettingsTab
+            dbCategories={dbCategories}
+            sizeConfig={sizeConfig}
+            saveSettings={saveSettings}
           />
         )}
 

@@ -24,12 +24,12 @@ test.describe('Joyas Fran - Panel Admin E2E Tests', () => {
 
     // Esperar redirección final a la pantalla de administración
     await page.waitForURL('**/admin');
-    await expect(page.getByRole('heading', { name: 'Resumen y Pedidos' })).toBeVisible();
+    await expect(page.locator('h2')).toContainText('Inicio');
   });
 
   test('Debería cargar el panel de administración correctamente', async ({ page }) => {
     // Verificar que estamos en el dashboard por defecto
-    await expect(page.getByRole('heading', { name: 'Resumen y Pedidos' })).toBeVisible();
+    await expect(page.locator('h2')).toContainText('Inicio');
   });
 
   test('Debería gestionar categorías', async ({ page }) => {
@@ -108,7 +108,7 @@ test.describe('Joyas Fran - Panel Admin E2E Tests', () => {
   test('Debería poder ver pedidos y filtrar', async ({ page }) => {
     // Navegar a Pedidos
     await page.click('button:has-text("Pedidos")', { force: true });
-    await expect(page.getByRole('heading', { name: 'Resumen y Pedidos' })).toBeVisible();
+    await expect(page.locator('h2')).toContainText('Pedidos');
 
     // Filtrar pedidos por ID o cliente
     await page.fill('[placeholder="Buscar pedido por ID, cliente, email o estado..."]', 'Pagado');

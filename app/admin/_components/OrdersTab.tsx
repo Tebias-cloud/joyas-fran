@@ -7,6 +7,7 @@ import {
   AlertTriangle, CheckCircle, ShoppingBag, Package, TrendingUp, ChevronRight
 } from 'lucide-react';
 import { type Order, type OrderStatus, type Product } from '../_types';
+import { TabHeader } from '../_utils';
 
 export const getFriendlyStatus = (status: string) => {
   const lower = status.toLowerCase();
@@ -109,121 +110,53 @@ export default function OrdersTab({
 
   return (
     <div className="space-y-6 md:space-y-8 animate-fade-in text-gray-900">
-      
-      {/* SECCIÓN MÉTRICAS UNIFICADA (Dashboard Superior) */}
-      <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 pb-3 border-b border-zinc-150">
-          <div>
-            <h2 className="text-xl md:text-2xl font-serif italic text-zinc-950">Resumen y Pedidos</h2>
-            <p className="text-xs text-zinc-500 font-light mt-0.5">Métricas e historial de pedidos en tiempo real.</p>
-          </div>
-          {/* Selector de Rango de Fechas */}
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[10px] font-bold uppercase text-zinc-400">Filtrar por:</span>
-            <select
-              value={dateFilter}
-              onChange={e => setDateFilter(e.target.value as any)}
-              className="p-2 border border-zinc-200 rounded-lg text-xs bg-zinc-55 hover:bg-zinc-100 outline-none cursor-pointer font-bold text-zinc-700 transition-colors"
-            >
-              <option value="todo">Todo el tiempo</option>
-              <option value="hoy">Hoy</option>
-              <option value="7dias">Últimos 7 días</option>
-              <option value="30dias">Últimos 30 días</option>
-              <option value="mes">Este mes</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Tarjetas de Métricas */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 pt-1">
-          {/* Ventas */}
-          <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col justify-between shadow-sm">
-            <div className="flex items-center gap-1.5 text-zinc-400 mb-1.5">
-              <ShoppingBag size={13} />
-              <span className="text-[8px] font-bold uppercase tracking-widest">Ventas del Período</span>
-            </div>
-            <p className="text-lg md:text-xl font-serif italic text-zinc-900 font-semibold">
-              ${stats.sales.toLocaleString('es-CL')}
-            </p>
-          </div>
-
-          {/* Pedidos */}
-          <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col justify-between shadow-sm">
-            <div className="flex items-center gap-1.5 text-zinc-400 mb-1.5">
-              <Package size={13} />
-              <span className="text-[8px] font-bold uppercase tracking-widest">Pedidos Confirmados</span>
-            </div>
-            <p className="text-lg md:text-xl font-serif italic text-zinc-900 font-semibold">
-              {stats.count}
-            </p>
-          </div>
-
-          {/* Por Despachar */}
-          <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col justify-between shadow-sm">
-            <div className="flex items-center gap-1.5 text-zinc-400 mb-1.5">
-              <Truck size={13} />
-              <span className="text-[8px] font-bold uppercase tracking-widest">Por Despachar</span>
-            </div>
-            <p className="text-lg md:text-xl font-serif italic text-zinc-900 font-semibold">
-              {stats.pendingDespatch}
-            </p>
-          </div>
-
-          {/* Alertas */}
-          <div className="bg-zinc-50 p-4 rounded-xl border border-zinc-200 flex flex-col justify-between shadow-sm">
-            <div className="flex items-center gap-1.5 text-zinc-400 mb-1.5">
-              <AlertTriangle size={13} />
-              <span className="text-[8px] font-bold uppercase tracking-widest">Bajo Stock</span>
-            </div>
-            <p className={`text-lg md:text-xl font-serif italic font-semibold ${stats.lowStock > 0 ? 'text-red-650' : 'text-zinc-900'}`}>
-              {stats.lowStock} {stats.lowStock === 1 ? 'joya' : 'joyas'}
-            </p>
-          </div>
-        </div>
-
-        {/* Alertas de atención rápido */}
-        {hasAlerts && (
-          <div className="bg-amber-50/50 border border-amber-200/80 rounded-xl p-3.5 space-y-2 mt-2">
-            <span className="text-[9px] font-bold text-amber-800 uppercase tracking-widest block">⚠️ Requiere Atención</span>
-            <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-amber-950">
-              {stats.toPrepare > 0 && (
-                <span>📦 <strong>{stats.toPrepare}</strong> pedido(s) listos para preparar.</span>
-              )}
-              {stats.lowStock > 0 && (
-                <span>⚠️ <strong>{stats.lowStock}</strong> producto(s) con stock crítico (&le; 3 unidades).</span>
-              )}
-              {stats.pendingPayment > 0 && (
-                <span>⏳ <strong>{stats.pendingPayment}</strong> intento(s) de pago pendientes.</span>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+      <TabHeader
+        title="Pedidos"
+        description="Historial y gestión de pedidos recibidos."
+      />
 
       {/* LISTADO DE PEDIDOS */}
       <div className="space-y-4">
         {/* Controles de Búsqueda y Filtros de Pago */}
-        <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
-          {/* Tabs Filtro de Pagos */}
-          <div className="flex bg-zinc-100 p-1 rounded-xl border border-zinc-200 shrink-0 select-none">
-            <button
-              onClick={() => setPaymentGroup('confirmados')}
-              className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${paymentGroup === 'confirmados' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-black'}`}
-            >
-              Confirmados
-            </button>
-            <button
-              onClick={() => setPaymentGroup('pendientes')}
-              className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${paymentGroup === 'pendientes' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-black'}`}
-            >
-              Pendientes de Pago
-            </button>
-            <button
-              onClick={() => setPaymentGroup('todos')}
-              className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${paymentGroup === 'todos' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-black'}`}
-            >
-              Todos
-            </button>
+        <div className="flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            {/* Tabs Filtro de Pagos */}
+            <div className="flex bg-zinc-100 p-1 rounded-xl border border-zinc-200 shrink-0 select-none">
+              <button
+                onClick={() => setPaymentGroup('confirmados')}
+                className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${paymentGroup === 'confirmados' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-black'}`}
+              >
+                Confirmados
+              </button>
+              <button
+                onClick={() => setPaymentGroup('pendientes')}
+                className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${paymentGroup === 'pendientes' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-black'}`}
+              >
+                Pendientes de Pago
+              </button>
+              <button
+                onClick={() => setPaymentGroup('todos')}
+                className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${paymentGroup === 'todos' ? 'bg-white text-black shadow-sm' : 'text-zinc-500 hover:text-black'}`}
+              >
+                Todos
+              </button>
+            </div>
+
+            {/* Selector de Rango de Fechas */}
+            <div className="flex items-center gap-1.5 bg-zinc-100 p-1 rounded-xl border border-zinc-200 shrink-0 select-none px-2.5 h-10">
+              <span className="text-[9px] font-bold uppercase text-zinc-400">Fecha:</span>
+              <select
+                value={dateFilter}
+                onChange={e => setDateFilter(e.target.value as any)}
+                className="bg-transparent text-[10px] font-bold uppercase tracking-wider text-zinc-700 hover:text-black outline-none cursor-pointer border-none p-0 pr-4 font-bold"
+              >
+                <option value="todo">Todo el tiempo</option>
+                <option value="hoy">Hoy</option>
+                <option value="7dias">Últimos 7 días</option>
+                <option value="30dias">Últimos 30 días</option>
+                <option value="mes">Este mes</option>
+              </select>
+            </div>
           </div>
 
           {/* Barra de Búsqueda */}
