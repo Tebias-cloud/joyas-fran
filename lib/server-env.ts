@@ -29,4 +29,7 @@ export const serverEnv = {
   get mercadoPagoWebhookSecret() {
     return requireServerEnv('MP_WEBHOOK_SECRET');
   },
+  get geminiApiKey() {
+    return requireServerEnv('GEMINI_API_KEY');
+  },
 };

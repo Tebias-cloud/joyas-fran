@@ -1,153 +1,116 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { ADMIN_EMAIL } from '@/lib/config';
+import { z } from 'zod';
+import { isAdminRequest } from '@/lib/admin-auth';
+import { serverEnv } from '@/lib/server-env';
+import {
+  downloadProductImage,
+  parseGeminiJson,
+  productSuggestionRequestSchema,
+} from '@/lib/product-ai';
 
-// ─── POST /api/admin/product-scanner/suggest-name ────────────────────────────
-// Recibe: imageUrl, category, currentName (para evitar repetirlo)
-// Devuelve: { name: string }
-// NO re-analiza la imagen desde cero — usa el contexto ya conocido de la joya.
+const responseSchemas = {
+  name: z.object({ name: z.string().trim().min(3).max(60) }),
+  description: z.object({ description: z.string().trim().min(10).max(250) }),
+  instagram: z.object({ caption: z.string().trim().min(20).max(900) }),
+};
+
+function buildPrompt(input: z.infer<typeof productSuggestionRequestSchema>) {
+  if (input.mode === 'description') {
+    return `Observa esta joya de Joyas Fran y redacta una descripción comercial natural en español de Chile.
+
+Nombre: "${input.currentName || 'Joya sin nombre'}"
+Categoría: "${input.category || 'Sin categoría'}"
+
+Reglas:
+- Máximo 250 caracteres y 2 oraciones.
+- Describe únicamente rasgos visibles y posibles ocasiones de uso.
+- No inventes piedras, medidas, técnicas, stock ni características.
+- No uses frases exageradas ni un tono que parezca escrito por una IA.
+
+Responde solo JSON válido: {"description":"..."}`;
+  }
+
+  if (input.mode === 'instagram') {
+    const priceText = input.price ? `$${input.price.toLocaleString('es-CL')}` : 'consultar precio';
+    return `Prepara un texto breve para una publicación de Instagram de Joyas Fran, una joyería de Iquique.
+
+Producto: "${input.currentName}"
+Categoría: "${input.category || 'Joya'}"
+Descripción aprobada: "${input.description}"
+Precio: ${priceText}
+Disponibilidad actual: ${input.hasStock ? 'disponible' : 'sin stock'}
+
+Reglas:
+- Español chileno natural, cálido y sencillo; que no parezca texto genérico de IA.
+- Entre 3 y 5 líneas cortas.
+- Incluye el precio cuando esté informado.
+- No indiques una cantidad exacta de stock: una publicación puede quedar antigua.
+- Si no hay stock, indica que se puede consultar por reposición.
+- Termina con una invitación breve a escribir por mensaje directo.
+- Máximo 3 emojis y 4 hashtags relevantes.
+- No inventes materiales ni características que no estén en los datos.
+
+Responde solo JSON válido: {"caption":"..."}`;
+  }
+
+  const previousName = input.currentName
+    ? `Evita repetir el nombre anterior: "${input.currentName}".`
+    : '';
+
+  return `Observa esta joya de Joyas Fran y sugiere un nombre comercial en español.
+
+Categoría: "${input.category || 'Sin categoría'}". ${previousName}
+
+Reglas:
+- Entre 4 y 60 caracteres.
+- Natural, descriptivo y fácil de recordar.
+- No incluyas la marca, el material ni afirmaciones que no se vean.
+- Devuelve un solo nombre.
+
+Responde solo JSON válido: {"name":"..."}`;
+}
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Auth
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() { return cookieStore.getAll(); },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          },
-        },
-      }
-    );
-    const { data: { user } } = await supabase.auth.getUser();
-    const isUserAdmin =
-      user?.app_metadata?.role === 'admin' ||
-      (!!ADMIN_EMAIL && user?.email === ADMIN_EMAIL);
-
-    if (!user || !isUserAdmin) {
+    if (!(await isAdminRequest())) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // 2. Parsear body
-    const body = await request.json();
-    const { imageUrl, category, currentName, mode } = body as {
-      imageUrl: string;
-      category: string;
-      currentName: string;
-      mode?: 'name' | 'description';
-    };
-
-    if (!imageUrl) {
-      return NextResponse.json({ error: 'imageUrl es requerido' }, { status: 400 });
+    const requestResult = productSuggestionRequestSchema.safeParse(await request.json());
+    if (!requestResult.success) {
+      return NextResponse.json({ error: 'Los datos enviados no son válidos' }, { status: 400 });
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json(
-        { error: 'GEMINI_API_KEY no configurada en el servidor' },
-        { status: 500 }
-      );
-    }
-
-    // 3. Inicializar nuevo SDK @google/genai
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-    // 4. Descargar imagen para base64
-    const response = await fetch(imageUrl);
-    if (!response.ok) throw new Error(`Error al descargar imagen: HTTP ${response.status}`);
-    const arrayBuffer = await response.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString('base64');
-    const mimeType = response.headers.get('content-type') || 'image/webp';
-
-    // 5. Prompt enfocado según el modo
-    let prompt = '';
-    if (mode === 'description') {
-      prompt = `Mira esta imagen de una joya de Plata Ley 925 para una tienda chilena llamada "Joyas Fran". El nombre de la joya es "${currentName || 'Joya sin nombre'}".
-      
-Sugerir una descripción comercial breve (máximo 250 caracteres) en español, atractiva y elegante, apropiada para una tienda online de joyas.
-Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional ni bloques de código:
-{"description": "la descripción aquí del producto"}`;
-    } else {
-      const categoryCtx = category ? ` Esta joya es de la categoría "${category}".` : '';
-      const avoidCtx = currentName
-        ? ` El nombre anterior fue "${currentName}", por favor sugiere algo diferente pero coherente con la misma joya.`
-        : '';
-
-      prompt = `Mira esta imagen de una joya de Plata Ley 925 para una tienda chilena llamada "Joyas Fran".${categoryCtx}${avoidCtx}
- 
-Sugiere UN SOLO nombre comercial en español para esta joya. El nombre debe:
-- Ser descriptivo y atractivo para una tienda de joyería
-- Tener entre 4 y 60 caracteres
-- Estar capitalizado correctamente
-- NO incluir la marca "Joyas Fran"
-- NO mencionar el material ni la pureza
-- Ser diferente al nombre anterior si se indicó uno
- 
-Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional ni bloques de código:
-{"name": "el nombre aquí"}`;
-    }
-
-    // 6. Llamar a Gemini con nuevo SDK
+    const input = requestResult.data;
+    const { base64, mimeType } = await downloadProductImage(input.imageUrl);
+    const ai = new GoogleGenAI({ apiKey: serverEnv.geminiApiKey });
     const result = await ai.models.generateContent({
       model: 'gemini-3.5-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { inlineData: { mimeType, data: base64 } },
-            { text: prompt },
-          ],
-        },
-      ],
+      contents: [{
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType, data: base64 } },
+          { text: buildPrompt(input) },
+        ],
+      }],
     });
 
-    const rawText = result.text?.trim() ?? '';
+    const parsed = parseGeminiJson(result.text?.trim() ?? '');
+    const validated = responseSchemas[input.mode].safeParse(parsed);
 
-    // 7. Parsear respuesta
-    let parsed: Record<string, unknown>;
-    try {
-      const jsonText = rawText
-        .replace(/^```(?:json)?\s*/i, '')
-        .replace(/```\s*$/i, '')
-        .trim();
-      parsed = JSON.parse(jsonText) as Record<string, unknown>;
-    } catch {
-      console.error('[suggest-name] JSON parse error. Raw:', rawText);
+    if (!validated.success) {
       return NextResponse.json(
-        { error: 'La IA devolvió una respuesta inválida. Intenta de nuevo.' },
+        { error: 'La IA devolvió una respuesta incompleta. Intenta nuevamente.' },
         { status: 422 }
       );
     }
 
-    if (mode === 'description') {
-      if (typeof parsed.description !== 'string' || parsed.description.trim().length < 5) {
-        return NextResponse.json(
-          { error: 'No se pudo generar una descripción. Intenta de nuevo.' },
-          { status: 422 }
-        );
-      }
-      return NextResponse.json({ description: parsed.description.trim() });
-    } else {
-      if (typeof parsed.name !== 'string' || parsed.name.trim().length < 3) {
-        return NextResponse.json(
-          { error: 'No se pudo generar un nombre alternativo. Intenta de nuevo.' },
-          { status: 422 }
-        );
-      }
-      return NextResponse.json({ name: parsed.name.trim() });
-    }
-
+    return NextResponse.json(validated.data);
   } catch (error) {
-    console.error('[suggest-name] Unexpected error:', error);
+    console.error('[product-suggestion] Error:', error);
     return NextResponse.json(
-      { error: 'Error inesperado al generar el nombre. Intenta de nuevo.' },
+      { error: 'No pudimos preparar la sugerencia. Intenta nuevamente.' },
       { status: 500 }
     );
   }

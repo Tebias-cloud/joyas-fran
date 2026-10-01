@@ -39,12 +39,15 @@ El panel permite operar desde móvil, pero el inventario solo baja automáticame
 
 ## Asistente de catálogo
 
-El scanner convierte la imagen real a WebP, la guarda en Supabase Storage y solicita a Gemini datos descriptivos estructurados. El formulario siempre queda sujeto a revisión humana.
+El scanner convierte la imagen real a WebP, la guarda en Supabase Storage y solicita a Gemini datos descriptivos estructurados. El servidor solo descarga imágenes del bucket público `products`, valida tipo y limita su tamaño. El formulario siempre queda sujeto a revisión humana.
 
-La IA no decide precio, stock, SKU ni material. El reemplazo de fondos deberá conservar los píxeles de la joya y aplicar únicamente recorte y composición sobre plantillas.
+La IA no decide precio, stock, SKU ni material. También puede preparar un borrador editable para Instagram usando la ficha actual; no publica ni sincroniza publicaciones externas.
+
+El reemplazo de fondos se implementará como un activo derivado: original conservado, recorte no generativo de la joya y composición sobre plantillas versionadas. La IA no debe redibujar, reconstruir ni modificar la joya.
 
 ## Decisiones pendientes
 
 - Plataforma gratuita definitiva, después de probar cookies, imágenes, Route Handlers y webhooks.
 - Registro rápido de ventas externas.
-- Generación de textos sociales y composiciones con fondos preparados.
+- Conservación de originales y composiciones con fondos preparados.
+- Publicación opcional mediante Meta Graph API después de validar permisos y cuenta comercial.

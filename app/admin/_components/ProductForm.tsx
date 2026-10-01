@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, KeyboardEvent } from 'react';
 import Image from 'next/image';
 import {
   X, UploadCloud, ChevronLeft, ChevronRight,
-  Star, Loader2, Sparkles, ChevronDown, ChevronUp
+  Star, Loader2, Sparkles, ChevronDown, ChevronUp, Copy, Instagram
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
@@ -66,6 +66,8 @@ export default function ProductForm({
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [isSuggestingName, setIsSuggestingName] = useState(false);
   const [isRegeneratingDesc, setIsRegeneratingDesc] = useState(false);
+  const [isPreparingInstagram, setIsPreparingInstagram] = useState(false);
+  const [instagramCaption, setInstagramCaption] = useState('');
   const [userEditedDescription, setUserEditedDescription] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -228,6 +230,45 @@ export default function ProductForm({
       setIsRegeneratingDesc(false);
     }
   }, [productForm.images, productForm.category, productForm.name, isRegeneratingDesc, userEditedDescription, setProductForm]);
+
+  const handlePrepareInstagram = useCallback(async () => {
+    const imageUrl = productForm.images[0];
+    if (!imageUrl || !productForm.name.trim() || isPreparingInstagram) return;
+
+    setIsPreparingInstagram(true);
+    try {
+      const totalStock = Object.values(productForm.inventory).reduce((sum, value) => sum + value, 0);
+      const res = await fetch('/api/admin/product-scanner/suggest-name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageUrl,
+          category: productForm.category,
+          currentName: productForm.name,
+          description: productForm.description,
+          price: Number(productForm.price) || undefined,
+          hasStock: totalStock > 0,
+          mode: 'instagram',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.caption) throw new Error(data.error || 'No se pudo preparar el texto');
+      setInstagramCaption(data.caption as string);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo preparar el texto');
+    } finally {
+      setIsPreparingInstagram(false);
+    }
+  }, [productForm, isPreparingInstagram]);
+
+  const copyInstagramCaption = async () => {
+    try {
+      await navigator.clipboard.writeText(instagramCaption);
+      toast.success('Texto copiado. Ya puedes pegarlo en Instagram.');
+    } catch {
+      toast.error('No se pudo copiar. Selecciona el texto manualmente.');
+    }
+  };
 
   // ─── Handler Guardar ─────────────────────────────────────────────────────
 
@@ -725,6 +766,55 @@ export default function ProductForm({
               )}
             </div>
           )}
+
+          <div className="border border-pink-200 bg-pink-50/50 rounded-xl p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-2">
+                <Instagram size={17} className="text-pink-600 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-zinc-800">Texto para Instagram</p>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">
+                    Usa los datos actuales de la joya. No publica nada automáticamente.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handlePrepareInstagram}
+                disabled={isPreparingInstagram || !productForm.images[0] || !productForm.name.trim()}
+                className="bg-white border border-pink-200 hover:border-pink-400 text-pink-700 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {isPreparingInstagram
+                  ? <Loader2 size={11} className="animate-spin" />
+                  : <Sparkles size={11} />}
+                {instagramCaption ? 'Preparar otro' : 'Preparar texto'}
+              </button>
+            </div>
+
+            {instagramCaption && (
+              <div className="space-y-2 animate-fade-in">
+                <textarea
+                  value={instagramCaption}
+                  onChange={event => setInstagramCaption(event.target.value)}
+                  rows={7}
+                  maxLength={900}
+                  className="w-full p-3 border border-pink-200 rounded-lg text-xs leading-relaxed outline-none focus:border-pink-400 resize-y bg-white"
+                />
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[9px] text-zinc-500">
+                    Revísalo antes de copiar. La disponibilidad final siempre la confirma la tienda.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={copyInstagramCaption}
+                    className="shrink-0 flex items-center gap-1.5 bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase"
+                  >
+                    <Copy size={11} /> Copiar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Más Opciones (Visibilidad / Borrador / Destacados) */}
           <div className="border-t pt-3">

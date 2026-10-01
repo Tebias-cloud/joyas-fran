@@ -15,6 +15,7 @@ En endurecimiento previo a producción. El flujo principal está implementado, p
 - Panel administrativo responsivo para productos, categorías, pedidos, promociones y ajustes.
 - Compresión WebP y múltiples imágenes por producto.
 - Asistente Gemini para nombre, descripción, categoría y metadatos SEO.
+- Texto editable para Instagram preparado desde la ficha y el stock actual.
 - Supabase Auth, RLS, Storage y RPC.
 
 ## Stack
@@ -70,4 +71,4 @@ Variables obligatorias:
 6. Ejecutar lint, pruebas, build y QA móvil.
 7. Reemplazar la URL temporal por el dominio definitivo.
 
-La arquitectura y sus invariantes están documentadas en [ARCHITECTURE.md](ARCHITECTURE.md).
+La arquitectura y sus invariantes están documentadas en [ARCHITECTURE.md](ARCHITECTURE.md). La operación diaria está resumida en [docs/ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md).
