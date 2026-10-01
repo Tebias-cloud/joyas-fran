@@ -22,7 +22,7 @@ const FEATURES = [
   {
     icon: CreditCard,
     title: "Pago Seguro",
-    description: "Transacciones encriptadas con WebPay"
+    description: "Pago procesado de forma segura por Mercado Pago"
   }
 ];
 // -----------------------------

@@ -3,10 +3,9 @@
 import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import {
-  Search, Eye, Store, Truck, Clock, X, User, Mail, Phone, Copy, Tag,
-  AlertTriangle, CheckCircle, ShoppingBag, Package, TrendingUp, ChevronRight
+  Search, Eye, Store, Truck, Clock, X, User, Mail, Phone, Copy, Tag
 } from 'lucide-react';
-import { type Order, type OrderStatus, type Product } from '../_types';
+import { type Order, type OrderStatus } from '../_types';
 import { TabHeader } from '../_utils';
 
 export const getFriendlyStatus = (status: string) => {
@@ -21,7 +20,6 @@ export const getFriendlyStatus = (status: string) => {
 
 interface OrdersTabProps {
   orders: Order[];
-  products: Product[];
   orderSearchTerm: string;
   setOrderSearchTerm: (term: string) => void;
   selectedOrder: Order | null;
@@ -30,9 +28,10 @@ interface OrdersTabProps {
   copyToClipboard: (text: string | undefined, label: string) => void;
 }
 
+type DateFilter = 'hoy' | '7dias' | '30dias' | 'mes' | 'todo';
+
 export default function OrdersTab({
   orders,
-  products,
   orderSearchTerm,
   setOrderSearchTerm,
   selectedOrder,
@@ -40,7 +39,7 @@ export default function OrdersTab({
   handleUpdateOrderStatus,
   copyToClipboard,
 }: OrdersTabProps) {
-  const [dateFilter, setDateFilter] = useState<'hoy' | '7dias' | '30dias' | 'mes' | 'todo'>('todo');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('todo');
   const [paymentGroup, setPaymentGroup] = useState<'confirmados' | 'pendientes' | 'todos'>('confirmados');
 
   // 1. Filtrar por rango de fechas
@@ -92,22 +91,6 @@ export default function OrdersTab({
     );
   }, [filteredByPaymentAndDateOrders, orderSearchTerm]);
 
-  // Calcular estadísticas dinámicas para el período seleccionado
-  const stats = useMemo(() => {
-    // Solo ventas reales confirmadas
-    const confirmedPeriod = filteredByDateOrders.filter(o => o.status.toLowerCase() !== 'pendiente');
-    const sales = confirmedPeriod.reduce((sum, o) => sum + o.total_amount, 0);
-    const count = confirmedPeriod.length;
-    const pendingDespatch = confirmedPeriod.filter(o => ['pagado', 'preparando', 'enviado'].includes(o.status.toLowerCase())).length;
-    const toPrepare = confirmedPeriod.filter(o => ['pagado', 'preparando'].includes(o.status.toLowerCase())).length;
-    const pendingPayment = filteredByDateOrders.filter(o => o.status.toLowerCase() === 'pendiente').length;
-    const lowStock = products.filter(p => p.stock <= 3).length;
-
-    return { sales, count, pendingDespatch, toPrepare, pendingPayment, lowStock };
-  }, [filteredByDateOrders, products]);
-
-  const hasAlerts = stats.lowStock > 0 || stats.toPrepare > 0 || stats.pendingPayment > 0;
-
   return (
     <div className="space-y-6 md:space-y-8 animate-fade-in text-gray-900">
       <TabHeader
@@ -147,7 +130,7 @@ export default function OrdersTab({
               <span className="text-[9px] font-bold uppercase text-zinc-400">Fecha:</span>
               <select
                 value={dateFilter}
-                onChange={e => setDateFilter(e.target.value as any)}
+                onChange={e => setDateFilter(e.target.value as DateFilter)}
                 className="bg-transparent text-[10px] font-bold uppercase tracking-wider text-zinc-700 hover:text-black outline-none cursor-pointer border-none p-0 pr-4 font-bold"
               >
                 <option value="todo">Todo el tiempo</option>

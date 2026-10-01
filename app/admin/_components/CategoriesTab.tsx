@@ -1,15 +1,14 @@
 'use client';
 
-import { useState, KeyboardEvent, DragEvent } from 'react';
+import { useState, DragEvent } from 'react';
 import Image from 'next/image';
-import { Search, Plus, Edit, Trash2, ChevronDown, ChevronUp, UploadCloud, Loader2, X } from 'lucide-react';
+import { Search, Plus, Edit, Trash2, UploadCloud, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
 import { convertToWebp } from '@/lib/images';
 import { type Category } from '../_types';
 
 interface CategoriesTabProps {
-  dbCategories: Category[];
   filteredCategories: Category[];
   categorySearchTerm: string;
   setCategorySearchTerm: (term: string) => void;
@@ -39,7 +38,7 @@ interface CategoriesTabProps {
   >;
   editingCategoryId: number | null;
   setEditingCategoryId: (id: number | null) => void;
-  handleSaveCategory: (e: React.FormEvent) => Promise<any>;
+  handleSaveCategory: (e: React.FormEvent) => Promise<void>;
   handleEditCategoryClick: (c: Category) => void;
   handleDeleteCategory: (id: number, name: string) => Promise<void>;
   sizeConfig: Record<string, string[]>;
@@ -47,7 +46,6 @@ interface CategoriesTabProps {
 }
 
 export default function CategoriesTab({
-  dbCategories,
   filteredCategories,
   categorySearchTerm,
   setCategorySearchTerm,
@@ -63,7 +61,6 @@ export default function CategoriesTab({
   sizeConfig,
   saveSettings,
 }: CategoriesTabProps) {
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [isUploadingImg, setIsUploadingImg] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [newSize, setNewSize] = useState('');
@@ -165,7 +162,6 @@ export default function CategoriesTab({
                 meta_description: '',
               });
               setShowCategoryForm(true);
-              setShowAdvanced(false);
             }}
             className="bg-black text-white px-5 py-3 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 hover:bg-zinc-800 transition-colors w-full sm:w-auto justify-center"
           >

@@ -24,7 +24,7 @@ export default function Footer() {
                <span className="text-[10px] uppercase font-bold tracking-widest text-gray-900">Compra 100% Segura</span>
                <div className="flex items-center gap-2 text-xs text-gray-500 font-light">
                   <CreditCard className="w-3 h-3" /> 
-                  <span>WebPay Plus, Débito y Crédito</span>
+                  <span>Débito, crédito o saldo Mercado Pago</span>
                </div>
             </div>
 

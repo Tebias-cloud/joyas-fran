@@ -3,8 +3,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
 import { ClipboardList, Tag, Percent, Settings, LayoutDashboard } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -20,10 +18,8 @@ import { DEFAULT_MATERIAL } from './_utils';
 import {
   type TabView,
   type OrderStatus,
-  type SizeMap,
   type SettingValue,
   type StoreSettingRow,
-  type Inventory,
   type Order,
   type Product,
   type Category,
@@ -62,18 +58,6 @@ export default function AdminPage() {
   // ── Orders state ─────────────────────────────────────────────────────────────
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderSearchTerm, setOrderSearchTerm] = useState('');
-  const filteredOrders = useMemo(() => {
-    if (!orderSearchTerm) return orders;
-    const lower = orderSearchTerm.toLowerCase();
-    return orders.filter(o =>
-      o.id.toLowerCase().includes(lower) ||
-      o.shipping_info.firstName?.toLowerCase().includes(lower) ||
-      o.shipping_info.lastName?.toLowerCase().includes(lower) ||
-      o.shipping_info.email?.toLowerCase().includes(lower) ||
-      o.email?.toLowerCase().includes(lower) ||
-      o.status.toLowerCase().includes(lower)
-    );
-  }, [orders, orderSearchTerm]);
 
   // ── Products state ───────────────────────────────────────────────────────────
   const [showProductForm, setShowProductForm] = useState(false);
@@ -167,7 +151,6 @@ export default function AdminPage() {
       }
     };
     init();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   // ─── Order handlers ───────────────────────────────────────────────────────────
@@ -379,7 +362,10 @@ export default function AdminPage() {
 
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!categoryForm.name) return toast.error('El nombre de la categoría es obligatorio');
+    if (!categoryForm.name) {
+      toast.error('El nombre de la categoría es obligatorio');
+      return;
+    }
     const resolvedSlug = categoryForm.slug.trim() ||
       categoryForm.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
     const payload = {
@@ -590,7 +576,6 @@ export default function AdminPage() {
         {activeTab === 'pedidos' && (
           <OrdersTab
             orders={orders}
-            products={products}
             orderSearchTerm={orderSearchTerm}
             setOrderSearchTerm={setOrderSearchTerm}
             selectedOrder={selectedOrder}
@@ -633,7 +618,6 @@ export default function AdminPage() {
             {activeSubTab === 'categorias' && (
               <div className="mt-6">
                 <CategoriesTab
-                  dbCategories={dbCategories}
                   filteredCategories={filteredCategories}
                   categorySearchTerm={categorySearchTerm}
                   setCategorySearchTerm={setCategorySearchTerm}

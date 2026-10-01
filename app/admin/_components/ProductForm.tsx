@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback, KeyboardEvent } from 'react';
 import Image from 'next/image';
 import {
-  X, Plus, UploadCloud, ChevronLeft, ChevronRight,
-  Star, Loader2, AlertTriangle, Sparkles, ChevronDown, ChevronUp, Check
+  X, UploadCloud, ChevronLeft, ChevronRight,
+  Star, Loader2, Sparkles, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
@@ -23,7 +23,6 @@ interface ProductFormProps {
   aiPreFilled: boolean;
   setAiPreFilled: (v: boolean) => void;
   isSlugDirty: boolean;
-  setIsSlugDirty: (v: boolean) => void;
   onSave: (formState: ProductFormState) => Promise<void>;
   onCancel: () => void;
   onScanWithAI?: () => void;
@@ -50,7 +49,6 @@ export default function ProductForm({
   aiPreFilled,
   setAiPreFilled,
   isSlugDirty,
-  setIsSlugDirty,
   onSave,
   onCancel,
   onScanWithAI,
@@ -64,7 +62,6 @@ export default function ProductForm({
   const [isUploadingImgs, setIsUploadingImgs] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [tempImageUrl, setTempImageUrl] = useState('');
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [isSuggestingName, setIsSuggestingName] = useState(false);
@@ -196,7 +193,7 @@ export default function ProductForm({
     } finally {
       setIsSuggestingName(false);
     }
-  }, [productForm.images, productForm.category, productForm.name, isSlugDirty, setProductForm]);
+  }, [productForm.images, productForm.category, productForm.name, isSlugDirty, isSuggestingName, setProductForm]);
 
   // ─── Handler IA: regenerar descripción ─────────────────────────────────
 
@@ -724,7 +721,7 @@ export default function ProductForm({
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-zinc-400 italic">No hay tallas configuradas para la categoría "{productForm.category || 'actual'}". Puedes configurarlas en la pestaña Ajustes.</p>
+                <p className="text-xs text-zinc-400 italic">No hay tallas configuradas para la categoría &quot;{productForm.category || 'actual'}&quot;. Puedes configurarlas en la pestaña Ajustes.</p>
               )}
             </div>
           )}

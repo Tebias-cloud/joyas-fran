@@ -111,13 +111,13 @@ Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional ni bloques 
     const rawText = result.text?.trim() ?? '';
 
     // 7. Parsear respuesta
-    let parsed: any;
+    let parsed: Record<string, unknown>;
     try {
       const jsonText = rawText
         .replace(/^```(?:json)?\s*/i, '')
         .replace(/```\s*$/i, '')
         .trim();
-      parsed = JSON.parse(jsonText);
+      parsed = JSON.parse(jsonText) as Record<string, unknown>;
     } catch {
       console.error('[suggest-name] JSON parse error. Raw:', rawText);
       return NextResponse.json(
@@ -127,7 +127,7 @@ Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional ni bloques 
     }
 
     if (mode === 'description') {
-      if (!parsed.description || typeof parsed.description !== 'string' || parsed.description.trim().length < 5) {
+      if (typeof parsed.description !== 'string' || parsed.description.trim().length < 5) {
         return NextResponse.json(
           { error: 'No se pudo generar una descripción. Intenta de nuevo.' },
           { status: 422 }
@@ -135,7 +135,7 @@ Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional ni bloques 
       }
       return NextResponse.json({ description: parsed.description.trim() });
     } else {
-      if (!parsed.name || typeof parsed.name !== 'string' || parsed.name.trim().length < 3) {
+      if (typeof parsed.name !== 'string' || parsed.name.trim().length < 3) {
         return NextResponse.json(
           { error: 'No se pudo generar un nombre alternativo. Intenta de nuevo.' },
           { status: 422 }

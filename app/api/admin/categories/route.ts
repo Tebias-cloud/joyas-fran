@@ -1,49 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { ADMIN_EMAIL } from '@/lib/config';
-import { createClient } from '@supabase/supabase-js';
+import { isAdminRequest } from '@/lib/admin-auth';
+import { getErrorMessage } from '@/lib/errors';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
-// Cliente con service role para bypass de RLS
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  }
-);
-
-async function checkAdmin() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return false;
-
-  return (
-    user.app_metadata?.role === 'admin' ||
-    (!!ADMIN_EMAIL && user.email === ADMIN_EMAIL)
-  );
-}
-
-export async function GET(request: NextRequest) {
-  if (!(await checkAdmin())) {
+export async function GET() {
+  if (!(await isAdminRequest())) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
@@ -55,14 +16,14 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
     return NextResponse.json(data);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching categories:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
-  if (!(await checkAdmin())) {
+  if (!(await isAdminRequest())) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
@@ -76,14 +37,14 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
     return NextResponse.json(data);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error inserting category:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
-  if (!(await checkAdmin())) {
+  if (!(await isAdminRequest())) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
@@ -102,14 +63,14 @@ export async function PUT(request: NextRequest) {
 
     if (error) throw error;
     return NextResponse.json(data);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating category:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!(await checkAdmin())) {
+  if (!(await isAdminRequest())) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
@@ -125,8 +86,8 @@ export async function DELETE(request: NextRequest) {
 
     if (error) throw error;
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting category:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

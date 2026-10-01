@@ -11,12 +11,14 @@ interface DashboardTabProps {
   onViewReplenishmentProducts: () => void;
 }
 
+type DateFilter = 'hoy' | '7dias' | '30dias' | 'mes' | 'todo';
+
 export default function DashboardTab({
   orders,
   products,
   onViewReplenishmentProducts,
 }: DashboardTabProps) {
-  const [dateFilter, setDateFilter] = useState<'hoy' | '7dias' | '30dias' | 'mes' | 'todo'>('todo');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('todo');
 
   // 1. Filtrar por rango de fechas
   const filteredByDateOrders = useMemo(() => {
@@ -138,7 +140,7 @@ export default function DashboardTab({
             <span className="text-[10px] font-bold uppercase text-zinc-400">Filtrar por:</span>
             <select
               value={dateFilter}
-              onChange={e => setDateFilter(e.target.value as any)}
+              onChange={e => setDateFilter(e.target.value as DateFilter)}
               className="p-2 border border-zinc-200 rounded-lg text-xs bg-zinc-55 hover:bg-zinc-100 outline-none cursor-pointer font-bold text-zinc-700 transition-colors"
             >
               <option value="todo">Todo el tiempo</option>

@@ -161,7 +161,6 @@ export default function ProductsTab({
               aiPreFilled={aiPreFilled}
               setAiPreFilled={setAiPreFilled}
               isSlugDirty={isSlugDirty}
-              setIsSlugDirty={setIsSlugDirty}
               onSave={onSaveProduct}
               onCancel={handleCancel}
               onScanWithAI={() => setShowScannerModal(true)}

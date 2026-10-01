@@ -3,7 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getOrderById } from '@/services/orderService';
 import { getActiveCouponByCode, isCouponRegisteredForOrder, registerCouponUsage } from '@/services/couponService';
 import { createPaymentPreference } from '@/services/paymentService';
-import { SITE_URL } from '@/lib/config';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { serverEnv } from '@/lib/server-env';
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +14,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Falta orderId' }, { status: 400 });
     }
 
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
     console.log(" 🟢 Iniciando cobro seguro para la orden:", orderId);
 
     // 1. Obtener el monto real de la orden desde la base de datos
@@ -20,6 +28,10 @@ export async function POST(request: Request) {
 
     if (!order) {
       return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
+    }
+
+    if (order.userId !== user.id) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
 
     // 2. Actualizar el estado de la orden a "Pendiente Pago" (Acción segura en servidor)
@@ -65,7 +77,7 @@ export async function POST(request: Request) {
     const preference = await createPaymentPreference({
       orderId,
       amount: safeAmount,
-      baseUrl: SITE_URL
+      baseUrl: serverEnv.siteUrl
     });
 
     return NextResponse.json({
