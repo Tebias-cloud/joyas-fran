@@ -216,6 +216,7 @@ export default function DashboardTab({
             </div>
           </div>
         </div>
+      </div>
 
       <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
         <div className="flex items-start gap-3">
@@ -242,7 +243,6 @@ export default function DashboardTab({
           </div>
           <ClipboardCheck size={22} className="text-zinc-400 shrink-0" />
         </div>
-      </div>
       </div>
     </div>
   );
