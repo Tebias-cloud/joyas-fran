@@ -8,7 +8,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
-import { convertToWebp } from '@/lib/images';
+import { validatePhoto } from '@/lib/product-photo';
+import dynamic from 'next/dynamic';
 import type { ProductFormState, Category } from '../_types';
 import { DEFAULT_MATERIAL } from '../_utils';
 
@@ -33,6 +34,19 @@ interface ProductFormProps {
 
 const slugify = (text: string) =>
   text.toLowerCase().trim().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+
+const ProductPhotoEditor = dynamic(() => import('./ProductPhotoEditor'), { ssr: false });
+
+async function uploadOriginalPhoto(file: File) {
+  validatePhoto(file);
+  const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
+  const fileName = `${crypto.randomUUID()}-original.${extension}`;
+  const { error } = await supabase.storage.from('products').upload(fileName, file, {
+    contentType: file.type, cacheControl: '3600', upsert: false,
+  });
+  if (error) throw error;
+  return supabase.storage.from('products').getPublicUrl(fileName).data.publicUrl;
+}
 
 const AIBadge = () => (
   <span className="inline-flex items-center gap-0.5 bg-violet-100 text-violet-700 border border-violet-200 text-[8px] font-bold uppercase px-1.5 py-0.5 rounded">
@@ -70,6 +84,7 @@ export default function ProductForm({
   const [instagramCaption, setInstagramCaption] = useState('');
   const [userEditedDescription, setUserEditedDescription] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [photoToEdit, setPhotoToEdit] = useState<string | null>(null);
 
   const [useSizes, setUseSizes] = useState(() => !productForm.inventory['unico'] && Object.keys(productForm.inventory).length > 0);
 
@@ -91,20 +106,13 @@ export default function ProductForm({
     toast.loading(`Preparando ${files.length} foto(s)...`, { id: 'uploadToast' });
     try {
       for (const file of files) {
-        const webpBlob = await convertToWebp(file);
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.webp`;
-        const { error: uploadError } = await supabase.storage
-          .from('products')
-          .upload(fileName, webpBlob, { contentType: 'image/webp', cacheControl: '3600' });
-        if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
-        uploadedUrls.push(publicUrl);
+        uploadedUrls.push(await uploadOriginalPhoto(file));
       }
-      setProductForm(prev => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
       toast.success('¡Fotos subidas con éxito!', { id: 'uploadToast' });
-    } catch {
-      toast.error('Error al subir las fotos.', { id: 'uploadToast' });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al subir las fotos.', { id: 'uploadToast' });
     } finally {
+      if (uploadedUrls.length) setProductForm(prev => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
       setIsUploadingImgs(false);
       e.target.value = '';
     }
@@ -117,25 +125,37 @@ export default function ProductForm({
     setIsUploadingImgs(true);
     toast.loading('Reemplazando foto...', { id: 'uploadToast' });
     try {
-      const webpBlob = await convertToWebp(file);
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.webp`;
-      const { error: uploadError } = await supabase.storage
-        .from('products')
-        .upload(fileName, webpBlob, { contentType: 'image/webp', cacheControl: '3600' });
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
+      const publicUrl = await uploadOriginalPhoto(file);
       setProductForm(prev => {
         const copy = [...prev.images];
         copy[index] = publicUrl;
         return { ...prev, images: copy };
       });
       toast.success('Foto reemplazada.', { id: 'uploadToast' });
-    } catch {
-      toast.error('Error al reemplazar la foto.', { id: 'uploadToast' });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al reemplazar la foto.', { id: 'uploadToast' });
     } finally {
       setIsUploadingImgs(false);
       e.target.value = '';
     }
+  };
+
+  const handleApplyBackground = async (blob: Blob) => {
+    const source = photoToEdit;
+    if (!source) return;
+    const fileName = `${crypto.randomUUID()}-background.png`;
+    const { error } = await supabase.storage.from('products').upload(fileName, blob, {
+      contentType: 'image/png', cacheControl: '3600', upsert: false,
+    });
+    if (error) throw error;
+    const publicUrl = supabase.storage.from('products').getPublicUrl(fileName).data.publicUrl;
+    setProductForm(prev => {
+      const images = [...prev.images];
+      const index = images.indexOf(source);
+      images.splice(index < 0 ? images.length : index, 0, publicUrl);
+      return { ...prev, images };
+    });
+    toast.success('Copia añadida. La foto original se conserva. Guarda la joya para confirmar.');
   };
 
   const moveImage = (index: number, direction: 'left' | 'right') => {
@@ -378,6 +398,7 @@ export default function ProductForm({
 
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm animate-fade-in-up space-y-6">
+      {photoToEdit && <ProductPhotoEditor source={photoToEdit} onClose={() => setPhotoToEdit(null)} onApply={handleApplyBackground} />}
       
       {/* Cabecera del formulario */}
       <div className="flex justify-between items-center pb-3 border-b">
@@ -432,7 +453,7 @@ export default function ProductForm({
             <input
               type="file"
               multiple
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp"
               onChange={handleFileUpload}
               disabled={isUploadingImgs}
               onDragOver={() => setIsDragging(true)}
@@ -508,7 +529,8 @@ export default function ProductForm({
                       <input type="file" accept="image/*" disabled={isUploadingImgs} onChange={e => handleReplaceImage(e, i)} className="hidden" />
                     </label>
                   </div>
-                  <div className="absolute bottom-0 inset-x-0 bg-black/60 p-2 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button type="button" onClick={() => setPhotoToEdit(img)} disabled={isUploadingImgs} className="absolute bottom-10 inset-x-1 rounded bg-white/95 border py-2 text-[10px] font-semibold">Preparar fondo</button>
+                  <div className="absolute bottom-0 inset-x-0 bg-black/60 p-2 flex justify-between items-center sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                     <div className="flex gap-1">
                       <button type="button" disabled={i === 0} onClick={() => moveImage(i, 'left')} className="text-white hover:bg-white/20 p-1 rounded disabled:opacity-30">
                         <ChevronLeft size={12} />

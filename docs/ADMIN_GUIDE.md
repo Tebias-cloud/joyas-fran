@@ -21,10 +21,18 @@ Una publicación antigua de Instagram no representa stock en tiempo real. Por es
 
 ## Fotografías
 
-- Guarda siempre la fotografía original fuera del sistema hasta habilitar el flujo definitivo de fondos.
+- En **Fotos del producto**, las nuevas subidas JPG, PNG y WebP se guardan sin recomprimir (hasta 15 MB). Conserva además un respaldo en tu teléfono.
 - Usa luz natural suave y evita reflejos fuertes.
 - No tapes ninguna parte de la joya.
-- La futura herramienta de fondos conservará la joya y solo cambiará lo que queda detrás.
+- Pulsa **Preparar fondo** en una foto. La herramienta está en prueba: no garantiza recortes perfectos.
+- Si es una captura, ajusta izquierda, arriba, ancho y alto en porcentajes. El marco verde indica qué parte se usará. Para una foto normal deja 0, 0, 100, 100.
+- Pulsa **Preparar vista previa**. La primera vez descarga un modelo pesado; usa Wi-Fi y, si tu teléfono tarda demasiado, un computador. Puedes cancelar.
+- Elige Marfil, Blanco o Gris suave. Revisa bordes, piedras, cadenas y los huecos interiores. La IA calcula qué se conserva, no dibuja joyas nuevas; puede equivocarse y borrar detalles.
+- Si está bien, marca la confirmación y pulsa **Guardar copia con fondo**. Se añade una imagen nueva junto a la original; si era la primera, la copia pasa a ser portada. Guarda la joya para confirmar los cambios del catálogo.
+- Si está mal, pulsa **Conservar original / cerrar**. No cambia la foto ni el stock. No se publica automáticamente en Instagram.
+- La herramienta no corrige reflejos de colores, desenfoque ni recupera detalle perdido en capturas.
+
+Para tomar fotos: una sola joya completa sobre fondo mate neutro, luz suave junto a una ventana, cámara 1× y tocar la joya en pantalla para enfocar. Sube desde la galería; evita capturas y filtros. No necesitas repetir fotos antiguas para empezar.
 
 ## Qué hace y qué no hace la IA
 

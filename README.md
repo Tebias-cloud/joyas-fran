@@ -16,6 +16,7 @@ En endurecimiento previo a producción. El flujo principal está implementado, p
 - Compresión WebP y múltiples imágenes por producto.
 - Asistente Gemini para nombre, descripción, categoría y metadatos SEO.
 - Texto editable para Instagram preparado desde la ficha y el stock actual.
+- Editor experimental de encuadre y tres fondos preparados: segmentación local, revisión y copia derivada conservando la original.
 - Supabase Auth, RLS, Storage y RPC.
 
 ## Stack

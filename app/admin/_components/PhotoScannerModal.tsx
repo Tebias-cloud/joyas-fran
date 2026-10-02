@@ -1,6 +1,7 @@
 'use client';
 
 import { convertToWebp } from '@/lib/images';
+import { validatePhoto } from '@/lib/product-photo';
 import { useState, useRef } from 'react';
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
 import { X, Camera, ImageIcon, Loader2, AlertTriangle, CheckCircle2, RefreshCcw, Sparkles } from 'lucide-react';
@@ -59,6 +60,8 @@ export default function PhotoScannerModal({ categories, onResult, onClose }: Pho
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null); // para limpieza
+  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
+  const [originalFileName, setOriginalFileName] = useState<string | null>(null);
   const [editableResult, setEditableResult] = useState<EditableResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [statusText, setStatusText] = useState<string>('');
@@ -70,9 +73,8 @@ export default function PhotoScannerModal({ categories, onResult, onClose }: Pho
   // ─── Flujo principal: seleccionar foto ────────────────────────────────────
 
   const handleFileSelect = async (file: File) => {
-    // Validar tamaño (10 MB máx)
-    if (file.size > 10 * 1024 * 1024) {
-      setErrorMsg('La imagen es demasiado grande. Máximo 10 MB.');
+    try { validatePhoto(file); } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'Foto no válida');
       setStep('error');
       return;
     }
@@ -109,6 +111,16 @@ export default function PhotoScannerModal({ categories, onResult, onClose }: Pho
 
       setUploadedUrl(publicUrl);
       setUploadedFileName(fileName); // guardamos para poder borrar si la usuaria cancela
+
+      // Gemini recibe una copia pequeña; el catálogo y editor conservan la cámara original.
+      const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
+      const originalName = `${crypto.randomUUID()}-original.${extension}`;
+      const { error: originalError } = await supabase.storage.from('products').upload(`temp/${originalName}`, file, {
+        contentType: file.type, cacheControl: '3600', upsert: false,
+      });
+      if (originalError) throw originalError;
+      setOriginalFileName(originalName);
+      setOriginalUrl(supabase.storage.from('products').getPublicUrl(`temp/${originalName}`).data.publicUrl);
 
       // 4. Llamar al servidor para analizar la foto
       setStep('scanning');
@@ -191,9 +203,10 @@ export default function PhotoScannerModal({ categories, onResult, onClose }: Pho
       collection: editableResult.collection || null,
       meta_title: editableResult.meta_title,
       meta_description: editableResult.meta_description,
-      imageUrl: uploadedUrl,
+      imageUrl: originalUrl || uploadedUrl,
     });
-    // NO borrar el archivo: fue confirmado y será la imagen del producto.
+    // Solo limpiar la copia de análisis, nunca la original confirmada.
+    if (originalUrl) void deleteTempFile(uploadedFileName);
   };
 
   // ─── Reintentar con otra foto (borrar imagen anterior) ───────────────────
@@ -201,11 +214,14 @@ export default function PhotoScannerModal({ categories, onResult, onClose }: Pho
   const handleRetry = async () => {
     // Limpiar imagen temporal anterior de Supabase Storage
     await deleteTempFile(uploadedFileName);
+    await deleteTempFile(originalFileName);
 
     setStep('select');
     setPreviewUrl(null);
     setUploadedUrl(null);
     setUploadedFileName(null);
+    setOriginalFileName(null);
+    setOriginalUrl(null);
     setEditableResult(null);
     setErrorMsg('');
     setStatusText('');
@@ -215,6 +231,7 @@ export default function PhotoScannerModal({ categories, onResult, onClose }: Pho
   // ─── Cerrar modal (borrar imagen temporal si existe y no fue confirmada) ──
 
   const handleClose = async () => {
+    await deleteTempFile(originalFileName);
     // Si hay una imagen temporal y el usuario cierra sin confirmar → borrarla
     if (uploadedFileName && step !== 'result') {
       await deleteTempFile(uploadedFileName);

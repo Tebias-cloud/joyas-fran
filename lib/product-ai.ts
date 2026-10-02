@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import sharp from 'sharp';
 
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
 const PRODUCT_STORAGE_PATH = '/storage/v1/object/public/products/';
 
 export const productImageRequestSchema = z.object({
@@ -46,20 +47,39 @@ export async function downloadProductImage(imageUrl: string) {
     throw new Error('La imagen debe pertenecer al almacenamiento de productos');
   }
 
-  const response = await fetch(image, { redirect: 'error' });
+  const response = await fetch(image, { redirect: 'error', signal: AbortSignal.timeout(20_000) });
   if (!response.ok) throw new Error(`No se pudo descargar la imagen (${response.status})`);
 
   const contentType = response.headers.get('content-type') ?? '';
-  if (!contentType.startsWith('image/')) throw new Error('El archivo recibido no es una imagen');
+  if (!/^image\/(jpeg|png|webp)(;|$)/i.test(contentType)) throw new Error('Usa una imagen JPG, PNG o WebP');
 
   const declaredSize = Number(response.headers.get('content-length') ?? 0);
-  if (declaredSize > MAX_IMAGE_BYTES) throw new Error('La imagen supera el límite de 5 MB');
+  if (declaredSize > MAX_IMAGE_BYTES) throw new Error('La imagen supera el límite de 15 MB');
 
-  const arrayBuffer = await response.arrayBuffer();
-  if (arrayBuffer.byteLength > MAX_IMAGE_BYTES) throw new Error('La imagen supera el límite de 5 MB');
+  if (!response.body) throw new Error('La imagen recibida está vacía');
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      length += value.length;
+      if (length > MAX_IMAGE_BYTES) {
+        await reader.cancel();
+        throw new Error('La imagen supera el límite de 15 MB');
+      }
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+
+  // A small analysis copy avoids rejecting camera originals or modifying storage.
+  const optimized = await sharp(Buffer.concat(chunks), { limitInputPixels: 40_000_000 })
+    .rotate().resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 85 }).toBuffer();
 
   return {
-    base64: Buffer.from(arrayBuffer).toString('base64'),
-    mimeType: contentType,
+    base64: optimized.toString('base64'),
+    mimeType: 'image/webp',
   };
 }

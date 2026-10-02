@@ -39,15 +39,19 @@ El panel permite operar desde móvil, pero el inventario solo baja automáticame
 
 ## Asistente de catálogo
 
-El scanner convierte la imagen real a WebP, la guarda en Supabase Storage y solicita a Gemini datos descriptivos estructurados. El servidor solo descarga imágenes del bucket público `products`, valida tipo y limita su tamaño. El formulario siempre queda sujeto a revisión humana.
+El scanner conserva una original y prepara una copia WebP para Gemini. El servidor solo descarga JPG/PNG/WebP del bucket público `products`, limita a 15 MB y 40 megapíxeles y prepara una copia de análisis de hasta 1200 px. El formulario siempre queda sujeto a revisión humana.
 
 La IA no decide precio, stock, SKU ni material. También puede preparar un borrador editable para Instagram usando la ficha actual; no publica ni sincroniza publicaciones externas.
 
-El reemplazo de fondos se implementará como un activo derivado: original conservado, recorte no generativo de la joya y composición sobre plantillas versionadas. La IA no debe redibujar, reconstruir ni modificar la joya.
+El editor de fondos experimental conserva la original y añade un PNG derivado a la galería solo tras revisión explícita. Usa BiRefNet lite (MIT), revisión `de15b22ba131738a16dff04aab8bdf8dc32e3ac1`, mediante Transformers.js (Apache-2.0), en un Web Worker. Los pesos se descargan desde Hugging Face y se cachean en el navegador; las fotografías no se envían a ese proveedor. El worker se termina al completar, cancelar o cerrar para liberar memoria. La segmentación genera únicamente alfa; RGB proviene de la foto encuadrada (hasta 1600 px), sin generación, retoque ni eliminación de reflejos. Tres fondos sólidos están definidos en `lib/product-photo.ts`.
+
+Se usa Webpack explícitamente en desarrollo y build: Turbopack de Next 16.1.1 emite este worker como `.ts` sin compilar. No basta con un build exitoso: comprobar el worker en navegador es parte de la validación. `.npmrc` evita descargar CUDA de ONNX Node, que no se utiliza para el editor cliente.
+
+Límites: descarga inicial pesada (~180 MB de pesos más runtime), alto consumo de memoria y recortes imperfectos en huecos y cadenas. Requiere revisión, conexión inicial y navegador moderno. No hay clasificación fiable de confianza ni corrección manual de máscara aún. No se debe anunciar soporte perfecto para todos los diseños/dispositivos. Una copia en la galería también es pública cuando se guarda el producto; la original no es un archivo privado.
 
 ## Decisiones pendientes
 
 - Plataforma gratuita definitiva, después de probar cookies, imágenes, Route Handlers y webhooks.
 - Registro rápido de ventas externas.
-- Conservación de originales y composiciones con fondos preparados.
+- Validación del editor con más diseños y teléfonos reales; corrección manual de máscaras y fondos de marca.
 - Publicación opcional mediante Meta Graph API después de validar permisos y cuenta comercial.
