@@ -88,6 +88,40 @@ export async function PUT(request: NextRequest) {
     delete safePayload.stock;
     delete safePayload.inventory;
 
+    const { data: currentProduct, error: currentError } = await supabaseAdmin
+      .from('products')
+      .select('sku')
+      .eq('id', id)
+      .single();
+
+    if (currentError) throw currentError;
+
+    const currentSku = typeof currentProduct?.sku === 'string' ? currentProduct.sku : '';
+    const nextSku = typeof safePayload.sku === 'string' ? safePayload.sku : currentSku;
+    const enablingSample = currentSku.startsWith('FRAN-MUESTRA-') && !nextSku.startsWith('FRAN-MUESTRA-');
+
+    if (enablingSample) {
+      const { data: countRows, error: countError } = await supabaseAdmin
+        .from('stock_movements')
+        .select('id')
+        .eq('product_id', id)
+        .eq('movement_type', 'count')
+        .limit(1);
+
+      if (countError) {
+        return NextResponse.json(
+          { error: 'Primero aplica 20261002_stock_operations.sql y registra un conteo físico.' },
+          { status: 409 }
+        );
+      }
+      if (!countRows?.length) {
+        return NextResponse.json(
+          { error: 'Antes de habilitar esta joya, vuelve al catálogo y registra un Conteo físico en “Stock / venta”.' },
+          { status: 409 }
+        );
+      }
+    }
+
     const { data: saved, error } = await supabaseAdmin
       .from('products')
       .update(safePayload)
