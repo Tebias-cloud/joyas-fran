@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   if (!(await isAdminRequest())) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   try {
     const body = await request.json();
-    if (!['ACTIVAR DEMO', 'REEMPLAZAR CATALOGO'].includes(body.confirm) || body.exampleValues !== true) return NextResponse.json({ error: 'Confirma la demostración y los valores de ejemplo.' }, { status: 400 });
+    if (body.demo !== true) return NextResponse.json({ error: 'Confirma la preparación de la tienda.' }, { status: 400 });
     // Preflight the migration before uploading: do not mutate existing catalog yet.
     const { error: preflight } = await supabaseAdmin.from('catalog_replacement_snapshots').select('id').limit(1);
     if (preflight) return NextResponse.json({ error: 'Primero aplica la migración 20261002_sample_catalog.sql en Supabase.' }, { status: 409 });
