@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
-import { ClipboardList, Tag, Percent, Settings, LayoutDashboard } from 'lucide-react';
+import { ClipboardList, Tag, Percent, Settings, LayoutDashboard, PanelsTopLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 import DiscountsTab from './_components/DiscountsTab';
@@ -13,6 +13,7 @@ import CategoriesTab from './_components/CategoriesTab';
 import ProductsTab, { EMPTY_PRODUCT_FORM } from './_components/ProductsTab';
 import DashboardTab from './_components/DashboardTab';
 import SettingsTab from './_components/SettingsTab';
+import WebsiteTab from './_components/WebsiteTab';
 import { DEFAULT_MATERIAL } from './_utils';
 
 import {
@@ -36,6 +37,7 @@ const NAV_TABS = [
   { id: 'pedidos', label: 'Pedidos', icon: ClipboardList },
   { id: 'productos', label: 'Catálogo', icon: Tag },
   { id: 'descuentos', label: 'Promociones', icon: Percent },
+  { id: 'pagina', label: 'Página web', icon: PanelsTopLeft },
   { id: 'ajustes', label: 'Ajustes', icon: Settings },
 ] as const;
 
@@ -656,6 +658,8 @@ export default function AdminPage() {
             handleDeleteCoupon={handleDeleteCoupon}
           />
         )}
+
+        <div hidden={activeTab !== 'pagina'}><WebsiteTab products={products} /></div>
 
         {/* AJUSTES */}
         {activeTab === 'ajustes' && (

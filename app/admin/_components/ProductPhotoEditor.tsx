@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { applyPhotoMask, cropPhoto, FULL_PHOTO, loadPhoto, PHOTO_BACKGROUNDS, photoBlob, type PhotoCrop } from '@/lib/product-photo';
+import { applyPhotoMask, cropPhoto, FULL_PHOTO, loadPhoto, PHOTO_BACKGROUNDS, photoBlob, photoPlacement, type PhotoCrop } from '@/lib/product-photo';
 
 interface Props {
   source: string;
@@ -12,7 +12,6 @@ interface Props {
 
 export default function ProductPhotoEditor({ source, onClose, onApply }: Props) {
   const [crop, setCrop] = useState<PhotoCrop>({ ...FULL_PHOTO });
-  const [background, setBackground] = useState<string>(PHOTO_BACKGROUNDS[0].color);
   const [preview, setPreview] = useState('');
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -21,6 +20,7 @@ export default function ProductPhotoEditor({ source, onClose, onApply }: Props) 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const cutout = useRef<HTMLCanvasElement | null>(null);
+  const placement = useRef<ReturnType<typeof photoPlacement> | null>(null);
   const worker = useRef<Worker | null>(null);
   const active = useRef(true);
 
@@ -33,20 +33,21 @@ export default function ProductPhotoEditor({ source, onClose, onApply }: Props) 
   useEffect(() => {
     let cancelled = false;
     setApproved(false);
-    if (!cutout.current) return;
+    if (!cutout.current || !placement.current) return;
     const canvas = canvasRef.current;
     const context = canvas?.getContext('2d');
     if (!canvas || !context) return;
-    canvas.width = cutout.current.width;
-    canvas.height = cutout.current.height;
-    context.fillStyle = background;
+    canvas.width = 1200;
+    canvas.height = 1200;
+    context.fillStyle = PHOTO_BACKGROUNDS[0].color;
     context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(cutout.current, 0, 0);
+    const frame = placement.current;
+    context.drawImage(cutout.current, frame.x, frame.y, frame.width, frame.height);
     photoBlob(canvas).then(blob => {
       if (!cancelled) setPreview(URL.createObjectURL(blob));
     }).catch(() => setMessage('No se pudo preparar la vista previa.'));
     return () => { cancelled = true; };
-  }, [background, busy]);
+  }, [busy]);
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
@@ -79,11 +80,12 @@ export default function ProductPhotoEditor({ source, onClose, onApply }: Props) 
           const context = input.getContext('2d')!;
           const pixels = context.getImageData(0, 0, input.width, input.height);
           try {
+            placement.current = photoPlacement(data.alpha, input.width, input.height);
             pixels.data.set(applyPhotoMask(pixels.data, data.alpha));
             context.putImageData(pixels, 0, 0);
             cutout.current = input;
             setMessage('Revisa bordes, piedras, huecos y cadenas. El recortador puede borrar detalles.');
-          } catch { setMessage('El recortador devolvió una máscara no válida. Conserva la original.'); }
+          } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo recortar. Conserva la original.'); }
           nextWorker.terminate();
           setBusy(false);
         }
@@ -107,8 +109,8 @@ export default function ProductPhotoEditor({ source, onClose, onApply }: Props) 
   return (
     <dialog ref={dialogRef} onCancel={e => { e.preventDefault(); if (!saving) onClose(); }} aria-labelledby="photo-editor-title" className="m-auto w-[calc(100%-2rem)] max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 backdrop:bg-black/60">
       <div className="space-y-4">
-        <h3 id="photo-editor-title" className="text-lg font-semibold">Preparar fondo · prueba</h3>
-        <p className="text-sm text-zinc-600">La original se conserva. Ajusta el encuadre si es una captura de pantalla; no cortes ninguna parte de la joya.</p>
+        <h3 id="photo-editor-title" className="text-lg font-semibold">Preparar foto · prueba</h3>
+        <p className="text-sm text-zinc-600">Prepararemos una copia centrada con fondo marfil. La original se conserva.</p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <p className="text-sm mb-2">Original y encuadre</p>
@@ -116,6 +118,8 @@ export default function ProductPhotoEditor({ source, onClose, onApply }: Props) 
               <Image src={source} alt="Foto original para encuadrar" width={600} height={800} className="w-full h-auto" unoptimized />
               <div aria-hidden="true" className="absolute border-2 border-emerald-500 pointer-events-none" style={{ left: `${crop.x}%`, top: `${crop.y}%`, width: `${Math.min(crop.width, 100 - crop.x)}%`, height: `${Math.min(crop.height, 100 - crop.y)}%`, boxShadow: '0 0 0 999px rgb(0 0 0 / 20%)', clipPath: 'inset(-1px)' }} />
             </div>
+            <details className="mt-3"><summary className="text-sm cursor-pointer">Ajustar encuadre</summary>
+            <p className="text-xs text-zinc-500 mt-2">Solo si necesitas quitar barras de una captura. No cortes ninguna parte de la joya.</p>
             <div className="grid grid-cols-2 gap-2 mt-3">
               {(['x', 'y', 'width', 'height'] as const).map(key => (
                 <label key={key} className="text-xs">{{ x: 'Desde izquierda (%)', y: 'Desde arriba (%)', width: 'Ancho (%)', height: 'Alto (%)' }[key]}
@@ -128,13 +132,12 @@ export default function ProductPhotoEditor({ source, onClose, onApply }: Props) 
                 </label>
               ))}
             </div>
+            </details>
           </div>
           <div>
             <p className="text-sm mb-2">Resultado para revisar</p>
             {preview ? <Image src={preview} alt="Vista previa de joya con fondo preparado" width={600} height={800} className="w-full h-auto max-h-[420px] object-contain" unoptimized /> : <p className="bg-zinc-100 rounded-xl p-6 text-sm">Pulsa «Preparar vista previa». La primera descarga puede tardar varios minutos.</p>}
-            <div className="flex flex-wrap gap-2 mt-3">
-              {PHOTO_BACKGROUNDS.map(item => <button type="button" key={item.id} aria-pressed={background === item.color} onClick={() => setBackground(item.color)} disabled={busy || saving} className={`border rounded-lg px-3 py-2 text-sm ${background === item.color ? 'ring-2 ring-black' : ''}`} style={{ backgroundColor: item.color }}>{item.name}</button>)}
-            </div>
+            <p className="text-xs text-zinc-500 mt-3">Fondo marfil · formato cuadrado</p>
           </div>
         </div>
         <canvas ref={canvasRef} className="hidden" />

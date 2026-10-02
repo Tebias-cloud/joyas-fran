@@ -529,7 +529,7 @@ export default function ProductForm({
                       <input type="file" accept="image/*" disabled={isUploadingImgs} onChange={e => handleReplaceImage(e, i)} className="hidden" />
                     </label>
                   </div>
-                  <button type="button" onClick={() => setPhotoToEdit(img)} disabled={isUploadingImgs} className="absolute bottom-10 inset-x-1 rounded bg-white/95 border py-2 text-[10px] font-semibold">Preparar fondo</button>
+                  <button type="button" onClick={() => setPhotoToEdit(img)} disabled={isUploadingImgs} className="absolute bottom-10 inset-x-1 rounded bg-white/95 border py-2 text-[10px] font-semibold">Preparar foto</button>
                   <div className="absolute bottom-0 inset-x-0 bg-black/60 p-2 flex justify-between items-center sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                     <div className="flex gap-1">
                       <button type="button" disabled={i === 0} onClick={() => moveImage(i, 'left')} className="text-white hover:bg-white/20 p-1 rounded disabled:opacity-30">

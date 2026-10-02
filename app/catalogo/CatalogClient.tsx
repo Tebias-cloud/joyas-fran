@@ -20,7 +20,7 @@ const isValidUrl = (url: string | undefined | null): boolean => {
   return typeof url === 'string' && url.trim().length > 0 && url.startsWith('http');
 };
 
-export default function CatalogClient({ initialProducts, categories }: { initialProducts: Product[], categories: string[] }) {
+export default function CatalogClient({ initialProducts, categories, title = 'Nuestra colección', description = '' }: { initialProducts: Product[]; categories: string[]; title?: string; description?: string }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -169,8 +169,9 @@ export default function CatalogClient({ initialProducts, categories }: { initial
         <div className="mb-8 flex justify-between items-end border-b border-gray-100 pb-4">
           <div>
             <h1 className="text-3xl font-serif italic capitalize mb-1">
-              {onlySales ? 'Ofertas Especiales' : (queryParam ? `Resultados: "${queryParam}"` : categoryParam)}
+              {onlySales ? 'Ofertas Especiales' : (queryParam ? `Resultados: "${queryParam}"` : categoryParam === 'Todos' ? title : categoryParam)}
             </h1>
+            {description && <p className="text-sm text-zinc-500 max-w-xl mb-2">{description}</p>}
             <p className="text-gray-400 text-[10px] uppercase tracking-widest">{filteredProducts.length} Joyas</p>
           </div>
           

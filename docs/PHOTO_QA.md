@@ -20,3 +20,7 @@ Antes de producción:
 Limitación del entorno: no hay Chromium instalado y su descarga devolvió un archivo inválido. Se verificó que Webpack emite un worker JavaScript y su runtime WASM, pero la ejecución en navegador y la subida real a Supabase no están acreditadas por estas pruebas.
 
 La guía para la administradora está en `ADMIN_GUIDE.md`.
+
+El editor ahora ofrece un único fondo marfil y centra la máscara en un lienzo de 1200 × 1200, manteniendo proporciones. El encuadre manual queda en una sección secundaria. Las pruebas unitarias cubren cadenas tenues y máscaras vacías; la nueva presentación todavía requiere revisión visual en navegador.
+
+La sección Página web guarda exclusivamente la clave `website` en la tabla existente `store_settings`, a través de una ruta autenticada de administrador. Antes de producción, comprobar lectura/guardado con una cuenta real y permisos del bucket `products`, vista móvil, cambios de temporada y exclusión de destacados sin stock. No se aplicaron cambios a tablas o políticas de la base de datos.

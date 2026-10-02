@@ -1,7 +1,5 @@
 export const PHOTO_BACKGROUNDS = [
   { id: 'ivory', name: 'Marfil', color: '#f5f1e9' },
-  { id: 'white', name: 'Blanco', color: '#ffffff' },
-  { id: 'gray', name: 'Gris suave', color: '#e8e8e8' },
 ] as const;
 
 export type PhotoCrop = { x: number; y: number; width: number; height: number };
@@ -30,6 +28,21 @@ export function applyPhotoMask(rgba: Uint8ClampedArray, mask: Uint8ClampedArray 
     output[i * 4 + 3] = Math.round(rgba[i * 4 + 3] * mask[i] / 255);
   }
   return output;
+}
+
+/** Includes faint edges; keeps the entire mask and scales without changing proportions. */
+export function photoPlacement(mask: Uint8ClampedArray | Uint8Array, width: number, height: number, size = 1200) {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || mask.length !== width * height || size < 1) throw new Error('Máscara no válida');
+  let left = width, top = height, right = -1, bottom = -1;
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    if (mask[y * width + x] > 2) {
+      left = Math.min(left, x); top = Math.min(top, y);
+      right = Math.max(right, x); bottom = Math.max(bottom, y);
+    }
+  }
+  if (right < 0) throw new Error('No se encontró una joya. Conserva la original o prueba otra foto.');
+  const scale = size * 0.78 / Math.max(right - left + 1, bottom - top + 1);
+  return { x: size / 2 - (left + right + 1) / 2 * scale, y: size / 2 - (top + bottom + 1) / 2 * scale, width: width * scale, height: height * scale };
 }
 
 export function validatePhoto(file: File) {
