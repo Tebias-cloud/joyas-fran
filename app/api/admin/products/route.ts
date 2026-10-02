@@ -82,26 +82,24 @@ export async function PUT(request: NextRequest) {
       payload: Record<string, unknown>;
       variantsToUpsert?: ProductVariantInput[];
     };
+    // En edición, la ficha nunca modifica stock ni inventario.
+    // Esos movimientos pasan por /api/admin/stock para mantener historial e idempotencia.
+    const safePayload = { ...payload };
+    delete safePayload.stock;
+    delete safePayload.inventory;
+
     const { data: saved, error } = await supabaseAdmin
       .from('products')
-      .update(payload)
+      .update(safePayload)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
 
-    if (saved && variantsToUpsert && variantsToUpsert.length > 0) {
-      const mappedVariants = variantsToUpsert.map(v => ({
-        ...v,
-        product_id: saved.id,
-      }));
-      const { error: vError } = await supabaseAdmin
-        .from('product_variants')
-        .upsert(mappedVariants, { onConflict: 'product_id, size' });
-      
-      if (vError) throw vError;
-    }
+    // variantsToUpsert se ignora deliberadamente en PUT para evitar que un formulario
+    // abierto restaure cantidades antiguas después de una venta o un conteo.
+    void variantsToUpsert;
 
     return NextResponse.json(saved);
   } catch (error: unknown) {
