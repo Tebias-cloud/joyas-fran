@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { Copy, Download, Instagram, Share2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Product } from '../_types';
@@ -178,7 +179,7 @@ export default function InstagramShareModal({ product, onClose }: InstagramShare
         <div className="p-5 space-y-5">
           {product.image_url && (
             <div className="rounded-2xl overflow-hidden border border-zinc-200 bg-zinc-100">
-              <img src={product.image_url} alt={product.name} className="w-full max-h-72 object-contain" />
+              <Image src={product.image_url} alt={product.name} width={900} height={900} className="w-full h-auto max-h-72 object-contain" unoptimized />
             </div>
           )}
 
