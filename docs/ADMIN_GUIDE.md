@@ -15,9 +15,21 @@ Esta guía está pensada para operar Joyas Fran sin conocimientos técnicos.
 
 ## Regla principal del stock
 
-El panel es la lista principal de existencias. Una venta pagada en la web descuenta stock automáticamente. Si la venta ocurre presencialmente, por Instagram o por WhatsApp, hay que abrir la joya y descontar esa unidad manualmente.
+El panel es la lista principal de existencias. Una venta pagada en la web descuenta stock automáticamente. Si la venta ocurre por Instagram, WhatsApp o presencialmente, entra a **Catálogo → Stock / venta → Registrar venta**. Elige el canal y la cantidad; el movimiento queda guardado y se descuenta una sola vez aunque el teléfono reintente la petición.
+
+Cuando llegan piezas nuevas usa **Agregar stock**. Para comprobar la bodega real usa **Conteo físico**: escribe cuántas unidades tienes delante. El inicio muestra cuántas joyas tuvieron un conteo en los últimos 30 días; eso indica cobertura de revisión, no una promesa de exactitud.
+
+Editar nombre, fotos, precio o descripción no cambia el stock de una joya existente. Esta separación evita que un formulario abierto antes de una venta vuelva a guardar cantidades antiguas.
 
 Una publicación antigua de Instagram no representa stock en tiempo real. Por eso los textos no indican cantidades exactas y siempre invitan a confirmar disponibilidad.
+
+## Rutina diaria recomendada
+
+1. **Venta web:** no hagas nada; el pago confirmado descuenta automáticamente.
+2. **Venta por Instagram / WhatsApp / presencial:** abre la joya y usa **Stock / venta → Registrar venta**.
+3. **Llegó mercadería:** usa **Agregar stock**.
+4. **Una cantidad no te cuadra:** cuenta físicamente esa joya y usa **Conteo físico**.
+5. **Publicar en Instagram:** pulsa **Instagram** en la tarjeta de la joya. Revisa el texto, comparte desde el teléfono o guarda la foto. La cuenta no se publica ni se sincroniza automáticamente.
 
 ## Fotografías
 
@@ -58,6 +70,6 @@ La persona que configura la tienda debe aplicar una vez `supabase/migrations/202
 
 La carga incorpora nueve dijes y una pulsera con las fotografías originales recortadas, sus copias sobre el fondo oscuro y una portada de corazones y cisnes. No hay anillos ni aros inventados. Los productos anteriores quedan desactivados; se mantienen sus pedidos y se registra un respaldo de visibilidad, categorías y portada.
 
-**Precios, cantidades y materiales requieren confirmación.** Una imagen no permite saber el inventario ni el precio real. Mientras sean de muestra, aparece un aviso y el servidor bloquea sus pagos. Para habilitar una joya, edítala, confirma su material en el paso 2, revisa precio y stock en el paso 3 y marca que has verificado sus datos antes de guardar. Hacer esto una vez permite vender esa pieza; las demás continúan en revisión.
+**Precios, cantidades y materiales requieren confirmación.** Una imagen no permite saber el inventario ni el precio real. Mientras sean de muestra, aparece un aviso y el servidor bloquea sus pagos. Para habilitar una joya, primero abre **Stock / venta → Conteo físico** y registra la cantidad real. Después edítala, confirma su material en el paso 2, revisa el precio en el paso 3 y marca que verificaste los datos. El servidor exige ese conteo físico antes de retirar el SKU de muestra. Las demás piezas continúan bloqueadas hasta revisarlas.
 
 La operación usa la base de datos conectada: si Preview y producción comparten Supabase, ambos verán el catálogo nuevo. No vuelvas a ejecutar la carga para cambiar temporada; usa **Página web**.
