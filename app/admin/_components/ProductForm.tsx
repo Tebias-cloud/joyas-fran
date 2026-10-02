@@ -11,7 +11,7 @@ import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
 import { validatePhoto } from '@/lib/product-photo';
 import dynamic from 'next/dynamic';
 import type { ProductFormState, Category } from '../_types';
-import { DEFAULT_MATERIAL } from '../_utils';
+import { isSampleSku } from '@/lib/sample-catalog';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -85,6 +85,7 @@ export default function ProductForm({
   const [userEditedDescription, setUserEditedDescription] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [photoToEdit, setPhotoToEdit] = useState<string | null>(null);
+  const [sampleReviewed, setSampleReviewed] = useState(false);
 
   const [useSizes, setUseSizes] = useState(() => !productForm.inventory['unico'] && Object.keys(productForm.inventory).length > 0);
 
@@ -314,7 +315,11 @@ export default function ProductForm({
 
     setIsSaving(true);
     try {
-      await onSave(productForm);
+      if (sampleReviewed && (!productForm.material.trim() || productForm.material.trim().toLowerCase() === 'por confirmar')) {
+        toast.error('Confirma el material en el paso anterior antes de habilitar ventas.');
+        return;
+      }
+      await onSave(sampleReviewed && isSampleSku(productForm.sku) ? { ...productForm, sku: productForm.sku.replace(/^FRAN-MUESTRA-/, '') } : productForm);
     } finally {
       setIsSaving(false);
     }
@@ -661,13 +666,11 @@ export default function ProductForm({
             />
           </div>
 
-          {/* Material (Fijo) */}
+          {/* Material confirmed by the owner, never inferred from appearance. */}
           <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase text-gray-400">Material principal</label>
-            <div className="w-full p-3 border border-zinc-200 rounded-lg bg-zinc-50 text-zinc-600 text-sm font-medium">
-              {DEFAULT_MATERIAL}
-            </div>
-            <p className="text-[9px] text-zinc-400 mt-0.5">Centralizado para Joyas Fran.</p>
+            <input value={productForm.material} maxLength={100} onChange={event => setProductForm(previous => ({ ...previous, material: event.target.value }))} className="w-full p-3 border border-zinc-200 rounded-lg text-sm" />
+            <p className="text-[9px] text-zinc-400 mt-0.5">Confirma el material con la etiqueta o tu proveedor. Una foto no acredita pureza ni piedras.</p>
           </div>
         </div>
       )}
@@ -678,6 +681,10 @@ export default function ProductForm({
           <div className="pb-2 border-b border-gray-100">
             <p className="text-xs font-bold uppercase tracking-widest text-gray-700">💰 Precio y Stock</p>
           </div>
+          {isSampleSku(productForm.sku) && <div className="rounded-xl border bg-zinc-50 p-4 space-y-2 text-sm">
+            <p>Esta joya tiene valores de ejemplo. Puedes probarla y guardarla así; los pagos están bloqueados.</p>
+            <label className="flex gap-2"><input type="checkbox" checked={sampleReviewed} onChange={event => setSampleReviewed(event.target.checked)} /> Confirmé precio, stock y material reales y quiero habilitar su venta al guardar.</label>
+          </div>}
 
           {/* Precio y Precio Anterior */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

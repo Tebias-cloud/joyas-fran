@@ -12,6 +12,7 @@ interface Props {
 
 export default function ProductPhotoEditor({ source, onClose, onApply }: Props) {
   const [crop, setCrop] = useState<PhotoCrop>({ ...FULL_PHOTO });
+  const [backgroundIndex, setBackgroundIndex] = useState(0);
   const [preview, setPreview] = useState('');
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -39,15 +40,25 @@ export default function ProductPhotoEditor({ source, onClose, onApply }: Props) 
     if (!canvas || !context) return;
     canvas.width = 1200;
     canvas.height = 1200;
-    context.fillStyle = PHOTO_BACKGROUNDS[0].color;
-    context.fillRect(0, 0, canvas.width, canvas.height);
+    const foreground = cutout.current;
     const frame = placement.current;
-    context.drawImage(cutout.current, frame.x, frame.y, frame.width, frame.height);
-    photoBlob(canvas).then(blob => {
+    const background = PHOTO_BACKGROUNDS[backgroundIndex];
+    const compose = async () => {
+      const backdrop = 'imageUrl' in background ? await loadPhoto(background.imageUrl) : null;
+      if (cancelled) return;
+      context.fillStyle = background.color;
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      if (backdrop) {
+        const side = Math.min(backdrop.naturalWidth, backdrop.naturalHeight);
+        context.drawImage(backdrop, (backdrop.naturalWidth - side) / 2, (backdrop.naturalHeight - side) / 2, side, side, 0, 0, 1200, 1200);
+      }
+      context.drawImage(foreground, frame.x, frame.y, frame.width, frame.height);
+      const blob = await photoBlob(canvas);
       if (!cancelled) setPreview(URL.createObjectURL(blob));
-    }).catch(() => setMessage('No se pudo preparar la vista previa.'));
+    };
+    compose().catch(() => { if (!cancelled) setMessage('No se pudo preparar la vista previa.'); });
     return () => { cancelled = true; };
-  }, [busy]);
+  }, [busy, backgroundIndex]);
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
@@ -110,7 +121,7 @@ export default function ProductPhotoEditor({ source, onClose, onApply }: Props) 
     <dialog ref={dialogRef} onCancel={e => { e.preventDefault(); if (!saving) onClose(); }} aria-labelledby="photo-editor-title" className="m-auto w-[calc(100%-2rem)] max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-5 backdrop:bg-black/60">
       <div className="space-y-4">
         <h3 id="photo-editor-title" className="text-lg font-semibold">Preparar foto · prueba</h3>
-        <p className="text-sm text-zinc-600">Prepararemos una copia centrada con fondo marfil. La original se conserva.</p>
+        <p className="text-sm text-zinc-600">Prepararemos una copia centrada con el fondo oscuro de la tienda. La original se conserva.</p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <p className="text-sm mb-2">Original y encuadre</p>
@@ -137,7 +148,7 @@ export default function ProductPhotoEditor({ source, onClose, onApply }: Props) 
           <div>
             <p className="text-sm mb-2">Resultado para revisar</p>
             {preview ? <Image src={preview} alt="Vista previa de joya con fondo preparado" width={600} height={800} className="w-full h-auto max-h-[420px] object-contain" unoptimized /> : <p className="bg-zinc-100 rounded-xl p-6 text-sm">Pulsa «Preparar vista previa». La primera descarga puede tardar varios minutos.</p>}
-            <p className="text-xs text-zinc-500 mt-3">Fondo marfil · formato cuadrado</p>
+            <details className="mt-3"><summary className="cursor-pointer text-sm">Cambiar fondo</summary><div className="flex gap-2 mt-2">{PHOTO_BACKGROUNDS.map((background, index) => <button type="button" key={background.id} aria-pressed={backgroundIndex === index} disabled={busy || saving} onClick={() => { setBackgroundIndex(index); setPreview(''); }} className={`border rounded px-3 py-2 text-xs ${backgroundIndex === index ? 'ring-2 ring-black' : ''}`}>{background.name}</button>)}</div></details>
           </div>
         </div>
         <canvas ref={canvasRef} className="hidden" />

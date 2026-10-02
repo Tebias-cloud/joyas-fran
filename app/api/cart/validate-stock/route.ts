@@ -36,6 +36,12 @@ export async function POST(request: Request) {
     // Consultar stock real por cada producto+talla
     // Agrupamos los productIds para reducir queries
     const productIds = [...new Set(items.map(i => i.productId))];
+    if (items.some(item => !Number.isInteger(item.quantity) || item.quantity < 1 || typeof item.size !== 'string' || !item.size.trim())) {
+      return NextResponse.json({ error: 'Cantidad o talla no válida' }, { status: 400 });
+    }
+    const { data: activeProducts, error: activeError } = await supabaseAdmin.from('products').select('id, stock').in('id', productIds).eq('is_active', true);
+    if (activeError) throw activeError;
+    const activeIds = new Set((activeProducts || []).map(product => product.id));
 
     const { data: variants, error } = await supabaseAdmin
       .from('product_variants')
@@ -62,10 +68,7 @@ export async function POST(request: Request) {
 
     if (itemsWithoutVariant.length > 0) {
       const missingProductIds = [...new Set(itemsWithoutVariant.map(i => i.productId))];
-      const { data: products } = await supabaseAdmin
-        .from('products')
-        .select('id, stock')
-        .in('id', missingProductIds);
+      const products = (activeProducts || []).filter(product => missingProductIds.includes(product.id));
 
       for (const p of products || []) {
         // Asignamos el stock total del producto como fallback para cada size de ese producto
@@ -79,7 +82,7 @@ export async function POST(request: Request) {
     // Evaluar cada ítem
     for (const item of items) {
       const key = `${item.productId}:${item.size}`;
-      const available = stockMap.get(key) ?? 0;
+      const available = activeIds.has(item.productId) ? stockMap.get(key) ?? 0 : 0;
       const isValid = available >= item.quantity;
 
       results.push({

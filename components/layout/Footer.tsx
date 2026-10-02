@@ -15,13 +15,13 @@ export default function Footer() {
             <div className="flex flex-col items-center gap-2 px-4">
                <Truck className="w-5 h-5 text-gray-400" strokeWidth={1.5} />
                <span className="text-[10px] uppercase font-bold tracking-widest text-gray-900">Envíos desde Iquique</span>
-               <p className="text-xs text-gray-500 font-light">Despachos rápidos a todo Chile.</p>
+               <p className="text-xs text-gray-500 font-light">Consulta las opciones de entrega.</p>
             </div>
 
             {/* Ítem 2: Pago Seguro */}
             <div className="flex flex-col items-center gap-2 px-4 pt-8 md:pt-0">
                <ShieldCheck className="w-5 h-5 text-gray-400" strokeWidth={1.5} />
-               <span className="text-[10px] uppercase font-bold tracking-widest text-gray-900">Compra 100% Segura</span>
+               <span className="text-[10px] uppercase font-bold tracking-widest text-gray-900">Pago con Mercado Pago</span>
                <div className="flex items-center gap-2 text-xs text-gray-500 font-light">
                   <CreditCard className="w-3 h-3" /> 
                   <span>Débito, crédito o saldo Mercado Pago</span>
@@ -31,8 +31,8 @@ export default function Footer() {
             {/* Ítem 3: Calidad */}
             <div className="flex flex-col items-center gap-2 px-4 pt-8 md:pt-0">
                <Star className="w-5 h-5 text-gray-400" strokeWidth={1.5} />
-               <span className="text-[10px] uppercase font-bold tracking-widest text-gray-900">Plata Ley 925</span>
-               <p className="text-xs text-gray-500 font-light">Calidad y autenticidad garantizada.</p>
+               <span className="text-[10px] uppercase font-bold tracking-widest text-gray-900">Atención cercana</span>
+               <p className="text-xs text-gray-500 font-light">Te ayudamos a elegir tu joya.</p>
             </div>
 
           </div>
@@ -47,7 +47,7 @@ export default function Footer() {
           <div className="md:col-span-5 space-y-6">
             <Link href="/" className="font-serif italic text-2xl tracking-wider block">Joyas Fran</Link>
             <p className="text-gray-500 font-light leading-relaxed max-w-sm">
-              Selección exclusiva de joyas en Plata Ley 925. Diseños importados pensados para resaltar tu elegancia en cada ocasión.
+              Joyas elegidas para acompañarte en cada ocasión. Consulta los materiales y detalles de cada pieza.
             </p>
             <div className="flex gap-4 pt-2">
               {/* Instagram */}
@@ -84,10 +84,9 @@ export default function Footer() {
           <div className="md:col-span-3">
             <h4 className="font-bold uppercase tracking-[0.2em] text-[10px] mb-6 text-black">Boutique</h4>
             <ul className="space-y-4 text-gray-500 font-light text-xs uppercase tracking-wide">
-              <li><Link href="/catalogo?category=Anillos" className="hover:text-black transition-colors">Anillos</Link></li>
-              <li><Link href="/catalogo?category=Collares" className="hover:text-black transition-colors">Collares</Link></li>
+              <li><Link href="/catalogo?category=Dijes" className="hover:text-black transition-colors">Dijes</Link></li>
               <li><Link href="/catalogo?category=Pulseras" className="hover:text-black transition-colors">Pulseras</Link></li>
-              <li><Link href="/catalogo" className="hover:text-black transition-colors font-medium">Ver Todo</Link></li>
+              <li><Link href="/catalogo" className="hover:text-black transition-colors font-medium">Ver colección</Link></li>
             </ul>
           </div>
 
@@ -109,7 +108,7 @@ export default function Footer() {
         {/* COPYRIGHT */}
         <div className="pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] text-gray-400 font-medium uppercase tracking-wider">
           <p>© {new Date().getFullYear()} Joyas Fran. Iquique, Chile.</p>
-          <p>Plata 925 & Diseño Exclusivo.</p>
+          <p>Joyas elegidas para ti.</p>
         </div>
       </div>
     </footer>

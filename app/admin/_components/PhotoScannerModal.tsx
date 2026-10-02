@@ -199,7 +199,7 @@ export default function PhotoScannerModal({ categories, onResult, onClose }: Pho
       description: editableResult.description,
       category: editableResult.category,
       category_id: selectedCat?.id ?? editableResult.category_id,
-      material: 'Plata Ley 925', // siempre fijo
+      material: 'Por confirmar',
       collection: editableResult.collection || null,
       meta_title: editableResult.meta_title,
       meta_description: editableResult.meta_description,
@@ -473,8 +473,8 @@ export default function PhotoScannerModal({ categories, onResult, onClose }: Pho
               {/* Material — fijo, informativo */}
               <div className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
                 <span className="text-[10px] font-bold uppercase text-gray-400">Material</span>
-                <span className="text-xs text-gray-600 font-medium">Plata Ley 925</span>
-                <span className="ml-auto text-[9px] text-gray-400 italic">fijo para Joyas Fran</span>
+                <span className="text-xs text-gray-600 font-medium">Por confirmar</span>
+                <span className="ml-auto text-[9px] text-gray-400 italic">Lo confirmas en el formulario</span>
               </div>
 
               {/* Aviso */}

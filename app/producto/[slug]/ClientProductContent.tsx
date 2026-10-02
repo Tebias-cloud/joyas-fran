@@ -15,7 +15,7 @@ export default function ClientProductContent({ product }: { product: Product }) 
   const { addToCart } = useCart();
 
   // Estados
-  const [activeImage, setActiveImage] = useState<string>(product.images?.[0] || product.image_url || '/img/cat-anillos.webp');
+  const [activeImage, setActiveImage] = useState<string>(product.images?.[0] || product.image_url || '/img/backdrop-noir.webp');
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState<number>(1);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);

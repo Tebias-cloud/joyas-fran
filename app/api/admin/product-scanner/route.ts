@@ -174,7 +174,7 @@ Reglas estrictas:
       description: parsed.description.trim(),
       category: validCategory,
       category_id: validCategoryId,
-      material: 'Plata Ley 925',
+      material: 'Por confirmar',
       collection: parsed.collection?.trim() || null,
       meta_title: parsed.meta_title?.trim() || `${parsed.name} | Joyas Fran`,
       meta_description: parsed.meta_description?.trim() || parsed.description,

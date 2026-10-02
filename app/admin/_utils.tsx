@@ -3,10 +3,9 @@
  */
 
 /**
- * Material fijo de todos los productos de Joyas Fran.
- * Cambiar aquí actualiza el valor en todo el sistema.
+ * New products require confirmation from the owner or supplier.
  */
-export const DEFAULT_MATERIAL = 'Plata Ley 925';
+export const DEFAULT_MATERIAL = 'Por confirmar';
 
 /**
  * Componente reutilizable para el encabezado de cada tab del admin.

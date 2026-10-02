@@ -27,7 +27,7 @@ Una publicación antigua de Instagram no representa stock en tiempo real. Por es
 - Pulsa **Preparar foto** en una foto. La herramienta está en prueba: no garantiza recortes perfectos.
 - Si es una captura, abre **Ajustar encuadre** para quitar las barras. El marco verde indica qué parte se usará. Para una foto normal no hace falta ajustar nada.
 - Pulsa **Preparar vista previa**. La primera vez descarga un modelo pesado; usa Wi-Fi y, si tu teléfono tarda demasiado, un computador. Puedes cancelar.
-- La copia queda cuadrada, centrada y con fondo marfil, sin elegir colores. Revisa bordes, piedras, cadenas y los huecos interiores. La IA calcula qué se conserva, no dibuja joyas nuevas; puede equivocarse y borrar detalles.
+- La copia queda cuadrada, centrada y con el fondo oscuro de la tienda. Si prefieres marfil, abre **Cambiar fondo**. Revisa bordes, piedras, cadenas y los huecos interiores. La IA calcula qué se conserva, no dibuja joyas nuevas; puede equivocarse y borrar detalles.
 - Si está bien, marca la confirmación y pulsa **Guardar copia con fondo**. Se añade una imagen nueva junto a la original; si era la primera, la copia pasa a ser portada. Guarda la joya para confirmar los cambios del catálogo.
 - Si está mal, pulsa **Conservar original / cerrar**. No cambia la foto ni el stock. No se publica automáticamente en Instagram.
 - La herramienta no corrige reflejos de colores, desenfoque ni recupera detalle perdido en capturas.
@@ -48,6 +48,16 @@ La IA ayuda a redactar y clasificar. Nunca decide el precio, el stock, el materi
 
 En **Otros textos de la página** puedes cambiar presentación, ventajas y títulos de inicio y catálogo. Las fotos y nombres de categorías se editan desde **Categorías**. Las ediciones de Página web se conservan al cambiar de pestaña del panel, pero hay que guardarlas antes de cerrar.
 
-Usa joyas reales de la tienda en portada y categorías. Las imágenes ilustrativas antiguas no se reemplazan automáticamente en la base de datos. Sin portada elegida se muestra un fondo oscuro sin joyas inventadas. Para mantener una textura como la anterior, toma una foto real sobre ese tipo de superficie; el editor de catálogo prepara únicamente fondo marfil.
+Usa joyas reales de la tienda en portada y categorías. Sin portada elegida se muestra la textura oscura sin joyas inventadas. El editor usa un fondo preparado fotografiado desde arriba; no necesita volver a generar el fondo para cada joya. Una foto lateral necesita un fondo compatible: cambiar solo el fondo no cambia el ángulo de la pieza.
 
 Esta sección no modifica navegación, pie de página, políticas ni pagos. Los textos del catálogo pueden tardar hasta un minuto en renovarse según la caché.
+
+## Primera carga con las fotos de mamá
+
+La persona que configura la tienda debe aplicar una vez `supabase/migrations/20261002_sample_catalog.sql` desde el editor SQL de Supabase. Después entra a **Ajustes → Preparar catálogo con las fotos de mamá** y sigue la confirmación del panel.
+
+La carga incorpora nueve dijes y una pulsera con las fotografías originales recortadas, sus copias sobre el fondo oscuro y una portada de corazones y cisnes. No hay anillos ni aros inventados. Los productos anteriores quedan desactivados; se mantienen sus pedidos y se registra un respaldo de visibilidad, categorías y portada.
+
+**Precios, cantidades y materiales requieren confirmación.** Una imagen no permite saber el inventario ni el precio real. Mientras sean de muestra, aparece un aviso y el servidor bloquea sus pagos. Para habilitar una joya, edítala, confirma su material en el paso 2, revisa precio y stock en el paso 3 y marca que has verificado sus datos antes de guardar. Hacer esto una vez permite vender esa pieza; las demás continúan en revisión.
+
+La operación usa la base de datos conectada: si Preview y producción comparten Supabase, ambos verán el catálogo nuevo. No vuelvas a ejecutar la carga para cambiar temporada; usa **Página web**.

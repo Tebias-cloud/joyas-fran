@@ -212,7 +212,7 @@ export default function CatalogClient({ initialProducts, categories, title = 'Nu
             {filteredProducts.map((product) => {
               const hasMainImage = isValidUrl(product.image_url);
               const secondImageUrl = product.images?.[1];
-              const hasSecondImage = hasMainImage && isValidUrl(secondImageUrl);
+              const hasSecondImage = hasMainImage && isValidUrl(secondImageUrl) && !secondImageUrl?.includes('-original.webp');
               const isSoldOut = product.stock === 0;
               
               // CÁLCULO DEL DESCUENTO
@@ -222,7 +222,7 @@ export default function CatalogClient({ initialProducts, categories, title = 'Nu
 
               return (
                 <Link href={`/producto/${product.slug}`} key={product.id} className="group block relative">
-                  <div className="relative aspect-[3/4] bg-gray-100 overflow-hidden mb-4 rounded-sm">
+                  <div className="relative aspect-square bg-[#181818] overflow-hidden mb-4 rounded-sm">
                     
                     {/* ETIQUETA VISUAL DE OFERTA */}
                     {discountPercent > 0 && !isSoldOut && (

@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/tmp/
+/public/sample-catalog/*-cutout.png
 
 # next.js
 /.next/

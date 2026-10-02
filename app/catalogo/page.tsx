@@ -11,7 +11,7 @@ import { getWebsiteContent } from '@/lib/website-content-server';
 export const revalidate = 60;
 
 export const metadata = {
-  title: 'Catálogo Completo | Joyas Fran',
+  title: 'Catálogo',
   description: 'Explora las joyas disponibles de Joyas Fran y encuentra tu próxima favorita.',
 };
 

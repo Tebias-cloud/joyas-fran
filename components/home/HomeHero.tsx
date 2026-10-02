@@ -5,7 +5,7 @@ import type { WebsiteContent } from '@/lib/website-content';
 export default function HomeHero({ content, preview = false }: { content: WebsiteContent; preview?: boolean }) {
   return (
     <section className={`relative w-full bg-[#121212] overflow-hidden ${preview ? 'min-h-[380px]' : 'min-h-[600px] h-[85svh]'}`}>
-      <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(ellipse at 15% 15%, #414141 0%, #171717 45%, #080808 100%)' }}>
+      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url(/img/backdrop-noir.webp)' }}>
         {content.heroImage && <Image src={content.heroImage} alt="Selección de joyas de Joyas Fran" fill className="object-cover opacity-80" style={{ objectPosition: `center ${content.heroPosition}%` }} priority={!preview} sizes={preview ? '600px' : '100vw'} unoptimized />}
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/80" />
       </div>

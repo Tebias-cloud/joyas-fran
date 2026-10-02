@@ -1,4 +1,5 @@
 export const PHOTO_BACKGROUNDS = [
+  { id: 'noir', name: 'Oscuro de la tienda', color: '#181818', imageUrl: '/img/backdrop-noir.webp' },
   { id: 'ivory', name: 'Marfil', color: '#f5f1e9' },
 ] as const;
 

@@ -75,7 +75,7 @@ export const ProductCreateSchema = z.object({
   barcode: z.string().optional().nullable(),
   brand: z.string().default('Joyas Fran'),
   collection: z.string().optional().nullable(),
-  material: z.string().default('Plata Ley 925'),
+  material: z.string().default('Por confirmar'),
   cost_price: z.number().nonnegative('El costo no puede ser negativo').default(0),
   is_featured: z.boolean().default(false),
   is_new: z.boolean().default(false),

@@ -195,9 +195,10 @@ export default function Header() {
                 <Link 
                   href="/" 
                   onClick={handleLogoClick}
-                  className="text-2xl md:text-3xl font-serif italic tracking-wider uppercase hover:opacity-70 transition-opacity cursor-pointer block"
+                  className="text-xl md:text-2xl font-serif italic tracking-wider hover:opacity-70 transition-opacity cursor-pointer flex items-center justify-center gap-2"
                 >
-                  Joyas Fran
+                  <Image src="/img/logo-jf.webp" alt="" width={44} height={44} className="rounded-full w-9 h-9 md:w-11 md:h-11" />
+                  <span>Joyas Fran</span>
                 </Link>
               </div>
 
