@@ -1,11 +1,13 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Image from 'next/image';
-import { Plus, Search, Edit, Trash2, Copy } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Copy, Instagram, PackageOpen, Warehouse } from 'lucide-react';
 import type { Product, Category, ProductFormState, Inventory } from '../_types';
 import { DEFAULT_MATERIAL } from '../_utils';
 import ProductForm from './ProductForm';
+import StockActionModal from './StockActionModal';
+import InstagramShareModal from './InstagramShareModal';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -35,6 +37,7 @@ interface ProductsTabProps {
   onEditProduct: (p: Product) => Promise<void>;
   onDuplicateProduct: (p: Product) => Promise<void>;
   onDeleteProduct: (id: string) => Promise<void>;
+  onStockUpdated: () => Promise<void>;
   // Sub-tab
   activeSubTab: 'productos' | 'categorias';
   setActiveSubTab: (v: 'productos' | 'categorias') => void;
@@ -75,9 +78,13 @@ export default function ProductsTab({
   onEditProduct,
   onDuplicateProduct,
   onDeleteProduct,
+  onStockUpdated,
   activeSubTab,
   setActiveSubTab,
 }: ProductsTabProps) {
+  const [stockProduct, setStockProduct] = useState<Product | null>(null);
+  const [instagramProduct, setInstagramProduct] = useState<Product | null>(null);
+
   const filteredProducts = useMemo(() => {
     if (!productSearchTerm) return products;
     const lower = productSearchTerm.toLowerCase();
@@ -140,12 +147,23 @@ export default function ProductsTab({
 
            {/* Botones de acción (solo cuando NO está el form abierto) */}
           {!showProductForm && (
-            <div className="flex gap-2 flex-wrap">
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-zinc-200 bg-white p-4 flex items-start gap-3">
+                <div className="p-2.5 rounded-xl bg-zinc-100 text-zinc-700 shrink-0">
+                  <Warehouse size={20} />
+                </div>
+                <div>
+                  <p className="font-bold text-zinc-900">La bodega manda</p>
+                  <p className="text-sm text-zinc-600 mt-1">
+                    Si vendes por Instagram, WhatsApp o en persona, usa <strong>Stock / venta</strong>. Así la web y la bodega siguen diciendo lo mismo.
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={handleNewManual}
-                className="bg-black text-white px-5 py-3 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-2 hover:bg-zinc-800 transition-colors shadow-sm w-full sm:w-auto justify-center"
+                className="bg-black text-white px-5 min-h-12 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-zinc-800 transition-colors shadow-sm w-full sm:w-auto justify-center"
               >
-                <Plus size={14} /> Nueva joya
+                <Plus size={18} /> Nueva joya
               </button>
             </div>
           )}
@@ -232,16 +250,24 @@ export default function ProductsTab({
                               {p.stock} un.
                             </span>
                           </td>
-                          <td className="p-5 text-right space-x-1">
-                            <button onClick={() => onEditProduct(p)} className="p-2 text-gray-400 hover:text-black hover:bg-gray-100 rounded-md transition-all" title="Editar">
-                              <Edit size={15} />
-                            </button>
-                            <button onClick={() => onDuplicateProduct(p)} className="p-2 text-gray-400 hover:text-black hover:bg-gray-100 rounded-md transition-all" title="Duplicar">
-                              <Copy size={15} />
-                            </button>
-                            <button onClick={() => onDeleteProduct(p.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all" title="Eliminar">
-                              <Trash2 size={15} />
-                            </button>
+                          <td className="p-5">
+                            <div className="flex justify-end gap-2">
+                              <button onClick={() => setStockProduct(p)} className="px-3 py-2 rounded-lg bg-black text-white text-xs font-bold flex items-center gap-1.5">
+                                <PackageOpen size={15} /> Stock
+                              </button>
+                              <button onClick={() => setInstagramProduct(p)} className="px-3 py-2 rounded-lg border border-pink-200 text-pink-700 text-xs font-bold flex items-center gap-1.5">
+                                <Instagram size={15} /> Instagram
+                              </button>
+                              <button onClick={() => onEditProduct(p)} className="px-3 py-2 rounded-lg border border-zinc-200 text-zinc-700 text-xs font-bold flex items-center gap-1.5">
+                                <Edit size={15} /> Editar
+                              </button>
+                              <button onClick={() => onDuplicateProduct(p)} className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg" title="Duplicar">
+                                <Copy size={16} />
+                              </button>
+                              <button onClick={() => onDeleteProduct(p.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg" title="Eliminar">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -280,18 +306,29 @@ export default function ProductsTab({
                         </span>
                       </div>
 
-                      {/* Acciones */}
-                      <div className="flex justify-end gap-1.5 pt-2 border-t border-zinc-50">
-                        <button onClick={() => onEditProduct(p)} className="flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-700 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 rounded-lg transition-all">
-                          <Edit size={12} /> Editar
+                      {/* Acciones diarias: grandes y visibles para celular */}
+                      <div className="grid grid-cols-3 gap-2 pt-3 border-t border-zinc-100">
+                        <button onClick={() => setStockProduct(p)} className="min-h-14 rounded-xl bg-black text-white text-xs font-bold flex flex-col items-center justify-center gap-1">
+                          <PackageOpen size={19} /> Stock / venta
                         </button>
-                        <button onClick={() => onDuplicateProduct(p)} className="flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-700 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 rounded-lg transition-all" title="Duplicar">
-                          <Copy size={12} />
+                        <button onClick={() => setInstagramProduct(p)} className="min-h-14 rounded-xl border border-pink-200 bg-pink-50 text-pink-700 text-xs font-bold flex flex-col items-center justify-center gap-1">
+                          <Instagram size={19} /> Instagram
                         </button>
-                        <button onClick={() => onDeleteProduct(p.id)} className="flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50/50 hover:bg-red-50 border border-red-100 rounded-lg transition-all">
-                          <Trash2 size={12} />
+                        <button onClick={() => onEditProduct(p)} className="min-h-14 rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-800 text-xs font-bold flex flex-col items-center justify-center gap-1">
+                          <Edit size={19} /> Editar
                         </button>
                       </div>
+                      <details className="pt-2">
+                        <summary className="cursor-pointer text-xs font-bold text-zinc-500">Más opciones</summary>
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <button onClick={() => onDuplicateProduct(p)} className="min-h-11 rounded-xl border border-zinc-200 text-sm font-bold text-zinc-700 flex items-center justify-center gap-2">
+                            <Copy size={16} /> Duplicar
+                          </button>
+                          <button onClick={() => onDeleteProduct(p.id)} className="min-h-11 rounded-xl border border-red-100 bg-red-50 text-sm font-bold text-red-600 flex items-center justify-center gap-2">
+                            <Trash2 size={16} /> Eliminar
+                          </button>
+                        </div>
+                      </details>
                     </div>
                   </div>
                 ))}
@@ -305,6 +342,20 @@ export default function ProductsTab({
             </div>
           )}
         </div>
+      )}
+      {stockProduct && (
+        <StockActionModal
+          product={stockProduct}
+          onClose={() => setStockProduct(null)}
+          onSuccess={onStockUpdated}
+        />
+      )}
+
+      {instagramProduct && (
+        <InstagramShareModal
+          product={instagramProduct}
+          onClose={() => setInstagramProduct(null)}
+        />
       )}
     </div>
   );
