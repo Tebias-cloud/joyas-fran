@@ -682,8 +682,8 @@ export default function ProductForm({
             <p className="text-xs font-bold uppercase tracking-widest text-gray-700">💰 Precio y Stock</p>
           </div>
           {isSampleSku(productForm.sku) && <div className="rounded-xl border bg-zinc-50 p-4 space-y-2 text-sm">
-            <p>Esta joya tiene valores de ejemplo. Puedes probarla y guardarla así; los pagos están bloqueados.</p>
-            <label className="flex gap-2"><input type="checkbox" checked={sampleReviewed} onChange={event => setSampleReviewed(event.target.checked)} /> Confirmé precio, stock y material reales y quiero habilitar su venta al guardar.</label>
+            <p>Esta joya sigue bloqueada para pagos hasta confirmar datos reales. Primero registra un Conteo físico desde su tarjeta; luego vuelve aquí para confirmar precio y material.</p>
+            <label className="flex gap-2"><input type="checkbox" checked={sampleReviewed} onChange={event => setSampleReviewed(event.target.checked)} /> Confirmé precio y material reales y ya hice el conteo físico.</label>
           </div>}
 
           {/* Precio y Precio Anterior */}
@@ -710,6 +710,18 @@ export default function ProductForm({
             </div>
           </div>
 
+          {editingProductId ? (
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+              <p className="text-sm font-bold text-zinc-900">El stock se administra por separado</p>
+              <p className="text-sm text-zinc-600 mt-1">
+                Guarda aquí fotos, precio y datos de la joya. Para ventas, entradas o conteos físicos vuelve al catálogo y usa “Stock / venta”.
+              </p>
+              <p className="text-xs text-zinc-500 mt-2">
+                Así una ficha que quedó abierta no puede restaurar cantidades antiguas.
+              </p>
+            </div>
+          ) : (
+            <>
           {/* Tallas Selector */}
           <div className="space-y-2">
             <label className="text-[10px] font-bold uppercase text-gray-400">¿Esta joya tiene tallas?</label>
@@ -796,6 +808,9 @@ export default function ProductForm({
             </div>
           )}
 
+
+            </>
+          )}
           <div className="border border-pink-200 bg-pink-50/50 rounded-xl p-4 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-start gap-2">
