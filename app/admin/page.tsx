@@ -36,8 +36,8 @@ const NAV_TABS = [
   { id: 'inicio', label: 'Inicio', icon: LayoutDashboard },
   { id: 'pedidos', label: 'Pedidos', icon: ClipboardList },
   { id: 'productos', label: 'Catálogo', icon: Tag },
-  { id: 'descuentos', label: 'Promociones', icon: Percent },
-  { id: 'pagina', label: 'Página web', icon: PanelsTopLeft },
+  { id: 'descuentos', label: 'Promos', icon: Percent },
+  { id: 'pagina', label: 'Web', icon: PanelsTopLeft },
   { id: 'ajustes', label: 'Ajustes', icon: Settings },
 ] as const;
 
@@ -547,10 +547,10 @@ export default function AdminPage() {
                 setShowCategoryForm(false);
                 setShowCouponForm(false);
               }}
-              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${isActive ? 'text-white scale-105' : 'text-zinc-500 hover:text-zinc-300'}`}
+              className={`flex flex-col items-center justify-center flex-1 min-h-14 py-2 transition-all ${isActive ? 'text-white scale-105' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
-              <TabIcon size={18} className={isActive ? 'text-white' : 'text-zinc-500'} />
-              <span className={`text-[8px] font-bold uppercase tracking-wider mt-0.5 ${isActive ? 'text-white' : 'text-zinc-500'}`}>
+              <TabIcon size={20} className={isActive ? 'text-white' : 'text-zinc-500'} />
+              <span className={`text-[9px] font-bold uppercase tracking-wide mt-1 ${isActive ? 'text-white' : 'text-zinc-500'}`}>
                 {tab.label}
               </span>
             </button>
@@ -611,6 +611,7 @@ export default function AdminPage() {
               onEditProduct={handleEditProductClick}
               onDuplicateProduct={handleDuplicateProduct}
               onDeleteProduct={handleDeleteProduct}
+              onStockUpdated={fetchData}
               activeSubTab={activeSubTab}
               setActiveSubTab={setActiveSubTab}
             />
