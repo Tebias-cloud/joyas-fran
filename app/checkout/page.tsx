@@ -62,11 +62,6 @@ interface CartItem {
   slug?: string;
 }
 
-interface RegionData {
-  region: string;
-  comunas: string[];
-}
-
 interface ShippingRate {
   name: string;
   price: number;
@@ -128,15 +123,13 @@ export default function CheckoutPage() {
 
   const [formData, setFormData] = useState({
     email: '', firstName: '', lastName: '', rut: '', phone: '+56 9 ',
-    address: '', apartment: '', region: '', city: '', paymentMethod: 'webpay'
+    address: '', apartment: '', region: '', city: ''
   });
 
   const [errors, setErrors] = useState({ rut: '', phone: '' });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const regionData = REGIONES_Y_COMUNAS.find((r: RegionData) => r.region === formData.region);
   const comunasDisponibles = useMemo(() => {
-    return REGIONES_Y_COMUNAS.find((r: RegionData) => r.region === formData.region)?.comunas || [];
+    return REGIONES_Y_COMUNAS.find((region) => region.region === formData.region)?.comunas || [];
   }, [formData.region]);
   
   const subtotal = cartTotal;
@@ -659,8 +652,11 @@ export default function CheckoutPage() {
                     ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50' 
                     : 'bg-black text-white hover:bg-zinc-800 hover:shadow-md'}`}
             >
-                {processing ? <Loader2 className="w-4 h-4 animate-spin"/> : 'IR A PAGAR'}
+                {processing ? <Loader2 className="w-4 h-4 animate-spin"/> : 'PAGAR CON MERCADO PAGO'}
             </button>
+            <p className="mt-3 text-center text-[11px] leading-relaxed text-gray-500">
+              Te redirigiremos al sitio seguro de Mercado Pago. Puedes pagar con tarjeta sin crear una cuenta.
+            </p>
             
             <div className="mt-16 pt-8 border-t border-gray-100 space-y-1">
                 {Object.keys(POLICY_CONTENT).map(key => (

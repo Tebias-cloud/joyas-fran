@@ -6,7 +6,6 @@ import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 
-// 1. Renombramos tu componente original a PaymentResultContent
 function PaymentResultContent() {
   const searchParams = useSearchParams();
   const { clearCart } = useCart();
@@ -14,7 +13,6 @@ function PaymentResultContent() {
   // Parámetros que envía Mercado Pago en la URL al volver
   const payment_id = searchParams.get('payment_id');
   const payment_status = searchParams.get('status');
-  const external_reference = searchParams.get('external_reference');
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('Verificando tu pago con el banco...');
@@ -44,7 +42,7 @@ function PaymentResultContent() {
         const res = await fetch('/api/payment/commit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ payment_id, status: payment_status, external_reference }),
+          body: JSON.stringify({ payment_id, status: payment_status }),
         });
 
         const data = await res.json();
@@ -64,7 +62,7 @@ function PaymentResultContent() {
 
     verifyPayment();
 
-  }, [payment_id, payment_status, external_reference, clearCart]);
+  }, [payment_id, payment_status, clearCart]);
 
   if (status === 'loading') {
     return (

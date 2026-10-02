@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
 
+const TEST_ADMIN_EMAIL = process.env.TEST_ADMIN_EMAIL ?? '';
+const TEST_ADMIN_PASSWORD = process.env.TEST_ADMIN_PASSWORD ?? '';
+
 // ─── setup database client ───────────────────────────────────────────────────
 
 const envPath = path.join(__dirname, '../.env.local');
@@ -38,6 +41,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceRole, {
 });
 
 test.describe('Joyas Fran - Mobile Viewport E2E Tests', () => {
+  test.skip(!TEST_ADMIN_EMAIL || !TEST_ADMIN_PASSWORD, 'Configura TEST_ADMIN_EMAIL y TEST_ADMIN_PASSWORD');
   // Configurar viewport móvil para esta suite
   test.use({
     viewport: { width: 375, height: 812 },
@@ -50,8 +54,8 @@ test.describe('Joyas Fran - Mobile Viewport E2E Tests', () => {
     // 1. Iniciar sesión desde móvil (redirecciona a login con redirect param)
     await page.goto('/admin');
     await expect(page.locator('h1')).toContainText(/Bienvenido/i);
-    await page.fill('input[name="email"]', 'test-admin@joyasfran.cl');
-    await page.fill('input[name="password"]', 'TestAdmin123!');
+    await page.fill('input[name="email"]', TEST_ADMIN_EMAIL);
+    await page.fill('input[name="password"]', TEST_ADMIN_PASSWORD);
     
     // Botón de login cómodo de clickear en móvil
     const loginBtn = page.locator('button[type="submit"]');

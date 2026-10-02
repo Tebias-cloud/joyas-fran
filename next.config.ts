@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: { '/api/admin/sample-catalog': ['./public/sample-catalog/*.webp'] },
   images: {
     formats: ['image/avif', 'image/webp'],
     // 👇 Aquí agregamos el 95 y el 100 para tener máxima calidad disponible 👇

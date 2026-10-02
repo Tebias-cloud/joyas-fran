@@ -3,9 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
 import { useRouter } from 'next/navigation';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
-import { ClipboardList, Tag, Percent, Settings, LayoutDashboard } from 'lucide-react';
+import { ClipboardList, Tag, Percent, Settings, LayoutDashboard, PanelsTopLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 import DiscountsTab from './_components/DiscountsTab';
@@ -15,15 +13,14 @@ import CategoriesTab from './_components/CategoriesTab';
 import ProductsTab, { EMPTY_PRODUCT_FORM } from './_components/ProductsTab';
 import DashboardTab from './_components/DashboardTab';
 import SettingsTab from './_components/SettingsTab';
+import WebsiteTab from './_components/WebsiteTab';
 import { DEFAULT_MATERIAL } from './_utils';
 
 import {
   type TabView,
   type OrderStatus,
-  type SizeMap,
   type SettingValue,
   type StoreSettingRow,
-  type Inventory,
   type Order,
   type Product,
   type Category,
@@ -39,7 +36,8 @@ const NAV_TABS = [
   { id: 'inicio', label: 'Inicio', icon: LayoutDashboard },
   { id: 'pedidos', label: 'Pedidos', icon: ClipboardList },
   { id: 'productos', label: 'Catálogo', icon: Tag },
-  { id: 'descuentos', label: 'Promociones', icon: Percent },
+  { id: 'descuentos', label: 'Promos', icon: Percent },
+  { id: 'pagina', label: 'Web', icon: PanelsTopLeft },
   { id: 'ajustes', label: 'Ajustes', icon: Settings },
 ] as const;
 
@@ -62,18 +60,6 @@ export default function AdminPage() {
   // ── Orders state ─────────────────────────────────────────────────────────────
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderSearchTerm, setOrderSearchTerm] = useState('');
-  const filteredOrders = useMemo(() => {
-    if (!orderSearchTerm) return orders;
-    const lower = orderSearchTerm.toLowerCase();
-    return orders.filter(o =>
-      o.id.toLowerCase().includes(lower) ||
-      o.shipping_info.firstName?.toLowerCase().includes(lower) ||
-      o.shipping_info.lastName?.toLowerCase().includes(lower) ||
-      o.shipping_info.email?.toLowerCase().includes(lower) ||
-      o.email?.toLowerCase().includes(lower) ||
-      o.status.toLowerCase().includes(lower)
-    );
-  }, [orders, orderSearchTerm]);
 
   // ── Products state ───────────────────────────────────────────────────────────
   const [showProductForm, setShowProductForm] = useState(false);
@@ -167,7 +153,6 @@ export default function AdminPage() {
       }
     };
     init();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   // ─── Order handlers ───────────────────────────────────────────────────────────
@@ -209,7 +194,6 @@ export default function AdminPage() {
       description: formState.description.trim() || null,
       price: Number(formState.price),
       compare_at_price: formState.compare_at_price ? Number(formState.compare_at_price) : null,
-      cost_price: 0,
       category: resolvedCat?.name || formState.category || '',
       category_id: formState.category_id ? Number(formState.category_id) : null,
       image_url: formState.images[0] || '',
@@ -361,7 +345,7 @@ export default function AdminPage() {
       description: result.description,
       category_id: result.category_id ? result.category_id.toString() : '',
       category: result.category,
-      material: result.material || 'Plata Ley 925',
+      material: result.material || DEFAULT_MATERIAL,
       collection: result.collection || '',
       meta_title: result.meta_title,
       meta_description: result.meta_description,
@@ -379,13 +363,16 @@ export default function AdminPage() {
 
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!categoryForm.name) return toast.error('El nombre de la categoría es obligatorio');
+    if (!categoryForm.name) {
+      toast.error('El nombre de la categoría es obligatorio');
+      return;
+    }
     const resolvedSlug = categoryForm.slug.trim() ||
       categoryForm.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
     const payload = {
       name: categoryForm.name.trim(), slug: resolvedSlug,
       description: categoryForm.description.trim(),
-      image_url: categoryForm.image_url.trim() || '/img/cat-anillos.webp',
+      image_url: categoryForm.image_url.trim() || '',
       position: Number(categoryForm.position) || 0, is_active: categoryForm.is_active,
       meta_title: categoryForm.meta_title.trim() || categoryForm.name.trim(),
       meta_description: categoryForm.meta_description.trim() || categoryForm.description.trim(),
@@ -560,10 +547,10 @@ export default function AdminPage() {
                 setShowCategoryForm(false);
                 setShowCouponForm(false);
               }}
-              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${isActive ? 'text-white scale-105' : 'text-zinc-500 hover:text-zinc-300'}`}
+              className={`flex flex-col items-center justify-center flex-1 min-h-14 py-2 transition-all ${isActive ? 'text-white scale-105' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
-              <TabIcon size={18} className={isActive ? 'text-white' : 'text-zinc-500'} />
-              <span className={`text-[8px] font-bold uppercase tracking-wider mt-0.5 ${isActive ? 'text-white' : 'text-zinc-500'}`}>
+              <TabIcon size={20} className={isActive ? 'text-white' : 'text-zinc-500'} />
+              <span className={`text-[9px] font-bold uppercase tracking-wide mt-1 ${isActive ? 'text-white' : 'text-zinc-500'}`}>
                 {tab.label}
               </span>
             </button>
@@ -590,7 +577,6 @@ export default function AdminPage() {
         {activeTab === 'pedidos' && (
           <OrdersTab
             orders={orders}
-            products={products}
             orderSearchTerm={orderSearchTerm}
             setOrderSearchTerm={setOrderSearchTerm}
             selectedOrder={selectedOrder}
@@ -625,6 +611,7 @@ export default function AdminPage() {
               onEditProduct={handleEditProductClick}
               onDuplicateProduct={handleDuplicateProduct}
               onDeleteProduct={handleDeleteProduct}
+              onStockUpdated={fetchData}
               activeSubTab={activeSubTab}
               setActiveSubTab={setActiveSubTab}
             />
@@ -633,7 +620,6 @@ export default function AdminPage() {
             {activeSubTab === 'categorias' && (
               <div className="mt-6">
                 <CategoriesTab
-                  dbCategories={dbCategories}
                   filteredCategories={filteredCategories}
                   categorySearchTerm={categorySearchTerm}
                   setCategorySearchTerm={setCategorySearchTerm}
@@ -672,6 +658,8 @@ export default function AdminPage() {
             handleDeleteCoupon={handleDeleteCoupon}
           />
         )}
+
+        <div hidden={activeTab !== 'pagina'}><WebsiteTab products={products} /></div>
 
         {/* AJUSTES */}
         {activeTab === 'ajustes' && (

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getOrderById } from '@/services/orderService';
 import { getPaymentDetails, refundPayment } from '@/services/paymentService';
+import { verifyWebhookSignature } from '@/lib/mercadopago-webhook';
+import { serverEnv } from '@/lib/server-env';
 
 /**
  * Registra una entrada en la tabla webhook_logs.
@@ -40,8 +42,26 @@ export async function POST(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
 
+    const signedDataId = searchParams.get('data.id');
+    const signature = request.headers.get('x-signature');
+    const requestId = request.headers.get('x-request-id');
+
+    if (
+      !signedDataId ||
+      !signature ||
+      !requestId ||
+      !verifyWebhookSignature({
+        dataId: signedDataId,
+        requestId,
+        signature,
+        secret: serverEnv.mercadoPagoWebhookSecret,
+      })
+    ) {
+      return NextResponse.json({ error: 'Firma de webhook inválida' }, { status: 401 });
+    }
+
     // Intentar leer de los parámetros de búsqueda (IPN antiguo o webhook con query parameters)
-    paymentId = searchParams.get('data.id') || searchParams.get('id') || '';
+    paymentId = signedDataId;
     topic = searchParams.get('type') || searchParams.get('topic') || undefined;
 
     // Intentar leer del cuerpo JSON (notificaciones modernas de Mercado Pago)
@@ -49,7 +69,6 @@ export async function POST(request: Request) {
       const body = await request.json();
       rawBody = body;
       if (body) {
-        if (body.data?.id) paymentId = body.data.id;
         if (body.type) topic = body.type;
         if (body.action === 'payment.created' || body.action === 'payment.updated') {
           topic = 'payment';

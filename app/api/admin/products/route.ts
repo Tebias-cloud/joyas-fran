@@ -1,49 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { ADMIN_EMAIL } from '@/lib/config';
-import { createClient } from '@supabase/supabase-js';
+import { isAdminRequest } from '@/lib/admin-auth';
+import { getErrorMessage } from '@/lib/errors';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
-// Cliente con service role para bypass de RLS
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  }
-);
-
-async function checkAdmin() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return false;
-
-  return (
-    user.app_metadata?.role === 'admin' ||
-    (!!ADMIN_EMAIL && user.email === ADMIN_EMAIL)
-  );
+interface ProductVariantInput {
+  sku: string;
+  size: string;
+  stock: number;
+  price_override: number | null;
+  cost_price: number | null;
 }
 
-export async function GET(request: NextRequest) {
-  if (!(await checkAdmin())) {
+export async function GET() {
+  if (!(await isAdminRequest())) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
@@ -55,19 +24,22 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
     return NextResponse.json(data);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching products:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
-  if (!(await checkAdmin())) {
+  if (!(await isAdminRequest())) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
   try {
-    const { payload, variantsToUpsert } = await request.json();
+    const { payload, variantsToUpsert = [] } = await request.json() as {
+      payload: Record<string, unknown>;
+      variantsToUpsert?: ProductVariantInput[];
+    };
     const { data: saved, error } = await supabaseAdmin
       .from('products')
       .insert(payload)
@@ -78,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     if (saved && variantsToUpsert && variantsToUpsert.length > 0) {
       // Sincronizar product_id real
-      const mappedVariants = variantsToUpsert.map((v: any) => ({
+      const mappedVariants = variantsToUpsert.map(v => ({
         ...v,
         product_id: saved.id,
       }));
@@ -90,14 +62,14 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(saved);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error inserting product:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
-  if (!(await checkAdmin())) {
+  if (!(await isAdminRequest())) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
@@ -106,37 +78,72 @@ export async function PUT(request: NextRequest) {
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'ID es requerido' }, { status: 400 });
 
-    const { payload, variantsToUpsert } = await request.json();
+    const { payload, variantsToUpsert = [] } = await request.json() as {
+      payload: Record<string, unknown>;
+      variantsToUpsert?: ProductVariantInput[];
+    };
+    // En edición, la ficha nunca modifica stock ni inventario.
+    // Esos movimientos pasan por /api/admin/stock para mantener historial e idempotencia.
+    const safePayload = { ...payload };
+    delete safePayload.stock;
+    delete safePayload.inventory;
+
+    const { data: currentProduct, error: currentError } = await supabaseAdmin
+      .from('products')
+      .select('sku')
+      .eq('id', id)
+      .single();
+
+    if (currentError) throw currentError;
+
+    const currentSku = typeof currentProduct?.sku === 'string' ? currentProduct.sku : '';
+    const nextSku = typeof safePayload.sku === 'string' ? safePayload.sku : currentSku;
+    const enablingSample = currentSku.startsWith('FRAN-MUESTRA-') && !nextSku.startsWith('FRAN-MUESTRA-');
+
+    if (enablingSample) {
+      const { data: countRows, error: countError } = await supabaseAdmin
+        .from('stock_movements')
+        .select('id')
+        .eq('product_id', id)
+        .eq('movement_type', 'count')
+        .limit(1);
+
+      if (countError) {
+        return NextResponse.json(
+          { error: 'Primero aplica 20261002_stock_operations.sql y registra un conteo físico.' },
+          { status: 409 }
+        );
+      }
+      if (!countRows?.length) {
+        return NextResponse.json(
+          { error: 'Antes de habilitar esta joya, vuelve al catálogo y registra un Conteo físico en “Stock / venta”.' },
+          { status: 409 }
+        );
+      }
+    }
+
     const { data: saved, error } = await supabaseAdmin
       .from('products')
-      .update(payload)
+      .update(safePayload)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
 
-    if (saved && variantsToUpsert && variantsToUpsert.length > 0) {
-      const mappedVariants = variantsToUpsert.map((v: any) => ({
-        ...v,
-        product_id: saved.id,
-      }));
-      const { error: vError } = await supabaseAdmin
-        .from('product_variants')
-        .upsert(mappedVariants, { onConflict: 'product_id, size' });
-      
-      if (vError) throw vError;
-    }
+    // variantsToUpsert se ignora deliberadamente en PUT para evitar que un formulario
+    // abierto restaure cantidades antiguas después de una venta o un conteo.
+    void variantsToUpsert;
 
     return NextResponse.json(saved);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating product:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!(await checkAdmin())) {
+  if (!(await isAdminRequest())) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
@@ -152,8 +159,8 @@ export async function DELETE(request: NextRequest) {
 
     if (error) throw error;
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting product:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

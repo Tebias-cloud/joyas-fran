@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/tmp/
+/public/sample-catalog/*-cutout.png
 
 # next.js
 /.next/
@@ -32,6 +34,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -46,4 +49,3 @@ test-results/
 
 # Supabase local data
 supabase/.temp/
-

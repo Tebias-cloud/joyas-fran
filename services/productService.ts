@@ -29,10 +29,15 @@ export function mapVariantToDTO(variant: ProductVariant, basePrice: number, base
 }
 
 interface DBProduct extends Product {
-  categories?: { name: string } | null;
+  categories?: { name: string } | { name: string }[] | null;
 }
 
+// Public queries do not request supplier, barcode or acquisition-cost columns.
+const PUBLIC_PRODUCT_COLUMNS = 'id,name,price,compare_at_price,image_url,images,stock,slug,description,category_id,category,sizes,inventory,sku,brand,collection,material,is_featured,is_new,is_active,meta_title,meta_description,created_at,categories(name)';
+const PUBLIC_VARIANT_COLUMNS = 'id,product_id,sku,size,stock,price_override,created_at';
+
 export function mapProductToDTO(product: DBProduct, rawVariants: ProductVariant[] = []): ProductDTO {
+  const category = Array.isArray(product.categories) ? product.categories[0] : product.categories;
   const isLowStock = product.stock > 0 && product.stock <= 5;
   const onSale = !!(product.compare_at_price && product.compare_at_price > product.price);
 
@@ -62,7 +67,7 @@ export function mapProductToDTO(product: DBProduct, rawVariants: ProductVariant[
     slug: product.slug,
     description: product.description || '',
     categoryId: product.category_id || null,
-    categoryName: product.categories?.name || product.category || '', // Fallback a la antigua columna
+    categoryName: category?.name || product.category || '',
     sizes,
     inventory,
     variants,
@@ -71,7 +76,7 @@ export function mapProductToDTO(product: DBProduct, rawVariants: ProductVariant[
     barcode: product.barcode || '',
     brand: product.brand || 'Joyas Fran',
     collection: product.collection || '',
-    material: product.material || 'Plata Ley 925',
+    material: product.material || 'Por confirmar',
     costPrice: product.cost_price ? Number(product.cost_price) : 0,
     isFeatured: product.is_featured ?? false,
     isNew: product.is_new ?? false,
@@ -167,7 +172,9 @@ export async function getProducts(supabase: SupabaseClient): Promise<ProductDTO[
   // 1. Obtener productos con relación a la categoría
   const { data: rawProducts, error: pError } = await supabase
     .from('products')
-    .select('*, categories(*)')
+    .select(PUBLIC_PRODUCT_COLUMNS)
+    .eq('is_active', true)
+    .not('name', 'like', '[TEST%')
     .order('created_at', { ascending: false });
 
   if (pError) throw pError;
@@ -177,7 +184,7 @@ export async function getProducts(supabase: SupabaseClient): Promise<ProductDTO[
   const productIds = rawProducts.map(p => p.id);
   const { data: rawVariants, error: vError } = await supabase
     .from('product_variants')
-    .select('*')
+    .select(PUBLIC_VARIANT_COLUMNS)
     .in('product_id', productIds);
 
   if (vError) throw vError;
@@ -196,8 +203,10 @@ export async function getProductBySlug(supabase: SupabaseClient, slug: string): 
   // 1. Obtener producto
   const { data: product, error: pError } = await supabase
     .from('products')
-    .select('*, categories(*)')
+    .select(PUBLIC_PRODUCT_COLUMNS)
     .eq('slug', slug)
+    .eq('is_active', true)
+    .not('name', 'like', '[TEST%')
     .single();
 
   if (pError || !product) return null;
@@ -205,7 +214,7 @@ export async function getProductBySlug(supabase: SupabaseClient, slug: string): 
   // 2. Obtener variantes del producto
   const { data: rawVariants, error: vError } = await supabase
     .from('product_variants')
-    .select('*')
+    .select(PUBLIC_VARIANT_COLUMNS)
     .eq('product_id', product.id);
 
   if (vError) throw vError;
@@ -219,7 +228,9 @@ export async function getProductBySlug(supabase: SupabaseClient, slug: string): 
 export async function getSaleProducts(supabase: SupabaseClient, limitNumber: number = 4): Promise<ProductDTO[]> {
   const { data: rawProducts, error: pError } = await supabase
     .from('products')
-    .select('*, categories(*)')
+    .select(PUBLIC_PRODUCT_COLUMNS)
+    .eq('is_active', true)
+    .not('name', 'like', '[TEST%')
     .gt('compare_at_price', 0)
     .order('created_at', { ascending: false })
     .limit(limitNumber);
@@ -230,7 +241,7 @@ export async function getSaleProducts(supabase: SupabaseClient, limitNumber: num
   const productIds = rawProducts.map(p => p.id);
   const { data: rawVariants, error: vError } = await supabase
     .from('product_variants')
-    .select('*')
+    .select(PUBLIC_VARIANT_COLUMNS)
     .in('product_id', productIds);
 
   if (vError) throw vError;
@@ -258,8 +269,10 @@ export async function getProductsByCategory(supabase: SupabaseClient, categorySl
   // 2. Obtener productos de esa categoría
   const { data: rawProducts, error: pError } = await supabase
     .from('products')
-    .select('*, categories(*)')
+    .select(PUBLIC_PRODUCT_COLUMNS)
     .eq('category_id', category.id)
+    .eq('is_active', true)
+    .not('name', 'like', '[TEST%')
     .order('created_at', { ascending: false });
 
   if (pError) throw pError;
@@ -268,7 +281,7 @@ export async function getProductsByCategory(supabase: SupabaseClient, categorySl
   const productIds = rawProducts.map(p => p.id);
   const { data: rawVariants, error: vError } = await supabase
     .from('product_variants')
-    .select('*')
+    .select(PUBLIC_VARIANT_COLUMNS)
     .in('product_id', productIds);
 
   if (vError) throw vError;
@@ -399,8 +412,10 @@ export async function deleteProductVariant(supabase: SupabaseClient, id: string)
 export async function searchProducts(supabase: SupabaseClient, query: string, limitNumber: number = 5): Promise<ProductDTO[]> {
   const { data, error } = await supabase
     .from('products')
-    .select('*, categories(*)')
+    .select(PUBLIC_PRODUCT_COLUMNS)
     .ilike('name', `%${query}%`)
+    .eq('is_active', true)
+    .not('name', 'like', '[TEST%')
     .limit(limitNumber);
 
   if (error) throw error;
@@ -409,7 +424,7 @@ export async function searchProducts(supabase: SupabaseClient, query: string, li
   const productIds = data.map(p => p.id);
   const { data: rawVariants } = await supabase
     .from('product_variants')
-    .select('*')
+    .select(PUBLIC_VARIANT_COLUMNS)
     .in('product_id', productIds);
 
   return data.map(p => {
@@ -425,6 +440,8 @@ export async function getProductSlugs(supabase: SupabaseClient): Promise<{ slug:
   const { data, error } = await supabase
     .from('products')
     .select('slug, created_at')
+    .eq('is_active', true)
+    .not('name', 'like', '[TEST%')
     .order('created_at', { ascending: false });
 
   if (error) throw error;

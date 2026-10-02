@@ -9,6 +9,8 @@ import { ArrowRight, Star } from 'lucide-react';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import { getActiveCategories } from '@/services/productService';
 import { CategoryDTO } from '@/types/product';
+import HomeHero from '@/components/home/HomeHero';
+import { DEFAULT_WEBSITE_CONTENT, parseWebsiteContent, type FeaturedJewel } from '@/lib/website-content';
 
 // --- COMPONENTE UTILITARIO PARA ANIMAR AL SCROLLEAR ---
 const RevealOnScroll = ({ children, delay = 0, className = "" }: { children: ReactNode, delay?: number, className?: string }) => {
@@ -48,11 +50,9 @@ const RevealOnScroll = ({ children, delay = 0, className = "" }: { children: Rea
 
 // --- PÁGINA PRINCIPAL ---
 export default function HomePage() {
-  const [categories, setCategories] = useState<CategoryDTO[]>([
-    { id: 1, name: 'Anillos', slug: 'anillos', description: '', imageUrl: '/img/cat-anillos.webp', position: 0, isActive: true },
-    { id: 2, name: 'Collares', slug: 'collares', description: '', imageUrl: '/img/cat-collares.webp', position: 0, isActive: true },
-    { id: 3, name: 'Aros', slug: 'aros', description: '', imageUrl: '/img/cat-aros.webp', position: 0, isActive: true }
-  ]);
+  const [categories, setCategories] = useState<CategoryDTO[]>([]);
+  const [content, setContent] = useState(DEFAULT_WEBSITE_CONTENT);
+  const [featured, setFeatured] = useState<FeaturedJewel[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -66,6 +66,13 @@ export default function HomePage() {
       }
     }
     load();
+    let active = true;
+    fetch('/api/website', { cache: 'no-store' }).then(response => response.ok ? response.json() : null).then(data => {
+      if (!active || !data) return;
+      setContent(parseWebsiteContent(data.content));
+      setFeatured(data.featured || []);
+    }).catch(() => { /* The neutral default stays visible if the server is unavailable. */ });
+    return () => { active = false; };
   }, []);
 
   return (
@@ -74,60 +81,26 @@ export default function HomePage() {
       
       <main>
         {/* --- HERO SECTION --- */}
-        <section className="relative h-[90vh] w-full bg-[#121212] overflow-hidden">
-          {/* Imagen con Zoom Lento */}
-          <div className="absolute inset-0 overflow-hidden">
-             <div className="relative h-full w-full animate-zoom-out-slow">
-               <Image 
-                 src="/img/banner-home.webp" 
-                 alt="Colección Exclusiva Joyas Fran" 
-                 fill 
-                 className="object-cover opacity-80" 
-                 priority 
-                 sizes="100vw"
-                 quality={95}
-               />
-             </div>
-             <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/80" /> 
+        <HomeHero content={content} />
+
+        {featured.length > 0 && <section className="py-16 px-6 max-w-7xl mx-auto">
+          <h2 className="text-4xl font-serif italic text-center mb-10">{content.featuredTitle}</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            {featured.map(jewel => <Link key={jewel.id} href={`/producto/${jewel.slug}`} className="group">
+              <div className="relative aspect-square bg-[#f5f1e9] overflow-hidden rounded-lg">
+                {jewel.imageUrl && <Image src={jewel.imageUrl} alt={jewel.name} fill className="object-contain group-hover:scale-105 transition-transform" sizes="(max-width: 768px) 45vw, 30vw" unoptimized />}
+              </div>
+              <h3 className="mt-3 text-sm">{jewel.name}</h3>
+              <p className="text-sm text-zinc-600">${jewel.price.toLocaleString('es-CL')}</p>
+            </Link>)}
           </div>
-
-          {/* Contenido Hero */}
-          <div className="relative z-10 h-full flex flex-col items-center justify-center text-center text-white px-6">
-            
-            <div className="animate-fade-in-up opacity-0 delay-300 flex items-center gap-3 mb-6">
-                <div className="h-[1px] w-8 bg-white/40" /> 
-                <span className="text-[10px] md:text-xs uppercase tracking-[0.4em] font-medium text-white/90">
-                    Plata Italiana Ley 925
-                </span>
-                <div className="h-[1px] w-8 bg-white/40" />
-            </div>
-
-            <h1 className="animate-fade-in-up opacity-0 delay-500 text-5xl md:text-7xl lg:text-8xl font-serif italic mb-6 leading-none drop-shadow-2xl">
-              Esencia & <br/> Distinción
-            </h1>
-
-            {/* --- TEXTO BANNER (CERCANO Y NATURAL) --- */}
-            <p className="animate-fade-in-up opacity-0 delay-700 max-w-xl text-base md:text-xl font-normal mb-12 text-white drop-shadow-md leading-relaxed tracking-wide">
-              Joyas en Plata Ley 925. Diseños pensados para destacar tu estilo en cada ocasión.
-            </p>
-
-            {/* BOTÓN SIMPLIFICADO Y ELEGANTE */}
-            <div className="animate-fade-in-up opacity-0 delay-1000">
-                <Link 
-                  href="/catalogo" 
-                  className="bg-white text-black px-12 py-4 text-[11px] font-bold uppercase tracking-[0.3em] transition-all duration-300 border border-white hover:bg-black hover:text-white hover:border-white shadow-xl"
-                >
-                  Explorar Colección
-                </Link>
-            </div>
-          </div>
-        </section>
+        </section>}
 
         {/* --- CATEGORÍAS (Con animación al scrollear) --- */}
         <section className="py-24 px-6 max-w-7xl mx-auto">
           <RevealOnScroll className="flex flex-col items-center mb-20 space-y-4">
             <span className="text-[9px] uppercase tracking-[0.4em] text-gray-400 font-bold">Nuestras Piezas</span>
-            <h2 className="text-4xl font-serif italic text-gray-900">Favoritos del Mes</h2>
+            <h2 className="text-4xl font-serif italic text-gray-900">{content.categoriesTitle}</h2>
             <div className="w-12 h-[1px] bg-gray-300" />
           </RevealOnScroll>
           
@@ -135,15 +108,16 @@ export default function HomePage() {
             {categories.map((cat, i) => (
                <RevealOnScroll key={cat.id || i} delay={i * 150} className={i === 1 ? 'md:-mt-12' : ''}>
                  <Link 
-                   href={`/catalogo?category=${cat.name}`} 
+                   href={`/catalogo?category=${encodeURIComponent(cat.name)}`}
                    className="group relative aspect-[3/4] overflow-hidden bg-[#121212] cursor-pointer block"
                  >
-                    <Image 
-                      src={cat.imageUrl || '/img/cat-anillos.webp'} 
+                    {cat.imageUrl && <Image
+                      src={cat.imageUrl}
                       alt={cat.name} 
                       fill 
                       className="object-cover opacity-90 transition-transform duration-[1.5s] ease-out group-hover:scale-110 group-hover:opacity-100" 
-                    />
+                      unoptimized
+                    />}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
                     
                     <div className="absolute inset-0 flex items-end p-8 md:p-10">
@@ -173,23 +147,19 @@ export default function HomePage() {
              {/* --- TEXTO MANIFIESTO (AMIGABLE Y CÁLIDO) --- */}
              <RevealOnScroll delay={200}>
                 <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif italic text-gray-800 leading-tight tracking-tight">
-                  &quot;Piezas atemporales y de calidad, elegidas cuidadosamente para darle un brillo especial a tu día a día.&quot;
+                  &quot;{content.story}&quot;
                 </h2>
              </RevealOnScroll>
              
              <div className="grid grid-cols-1 md:grid-cols-3 gap-12 pt-16 border-t border-gray-200">
-                 {[
-                   { title: "Calidad Italiana", desc: "Plata Ley 925 auténtica." },
-                   { title: "Empaque Premium", desc: "La experiencia perfecta de regalo." },
-                   { title: "Envíos Seguros", desc: "A todo Chile, rápido y protegido." }
-                 ].map((item, idx) => (
+                 {content.benefits.map((item, idx) => (
                    <RevealOnScroll key={idx} delay={400 + (idx * 150)}>
                      <div className="space-y-3 group cursor-default">
                        <h4 className="text-[10px] font-bold uppercase tracking-[0.3em] text-black group-hover:text-gray-600 transition-colors">
                          {item.title}
                        </h4>
                        <p className="text-sm text-gray-500 font-light leading-relaxed">
-                         {item.desc}
+                         {item.description}
                        </p>
                      </div>
                    </RevealOnScroll>

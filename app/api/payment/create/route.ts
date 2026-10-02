@@ -3,7 +3,9 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getOrderById } from '@/services/orderService';
 import { getActiveCouponByCode, isCouponRegisteredForOrder, registerCouponUsage } from '@/services/couponService';
 import { createPaymentPreference } from '@/services/paymentService';
-import { SITE_URL } from '@/lib/config';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { serverEnv } from '@/lib/server-env';
+import { isSampleSku } from '@/lib/sample-catalog';
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +15,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Falta orderId' }, { status: 400 });
     }
 
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
     console.log(" 🟢 Iniciando cobro seguro para la orden:", orderId);
 
     // 1. Obtener el monto real de la orden desde la base de datos
@@ -20,6 +29,19 @@ export async function POST(request: Request) {
 
     if (!order) {
       return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
+    }
+
+    if (order.userId !== user.id) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    }
+
+    const { data: payableProducts, error: payableError } = await supabaseAdmin.from('products').select('id, sku, is_active').in('id', order.items.map(item => item.id));
+    if (payableError) throw payableError;
+    if (order.items.some(item => !payableProducts?.some(product => product.id === item.id && product.is_active))) {
+      return NextResponse.json({ error: 'Una joya ya no está disponible. Actualiza tu carrito.' }, { status: 409 });
+    }
+    if (payableProducts?.some(product => isSampleSku(product.sku))) {
+      return NextResponse.json({ error: 'Esta colección tiene precios y existencias de ejemplo. Revisa los productos antes de habilitar pagos.' }, { status: 409 });
     }
 
     // 2. Actualizar el estado de la orden a "Pendiente Pago" (Acción segura en servidor)
@@ -65,7 +87,7 @@ export async function POST(request: Request) {
     const preference = await createPaymentPreference({
       orderId,
       amount: safeAmount,
-      baseUrl: SITE_URL
+      baseUrl: serverEnv.siteUrl
     });
 
     return NextResponse.json({

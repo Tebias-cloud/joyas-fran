@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Package, Truck, AlertTriangle, Clock, TrendingUp, ChevronRight } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Package, Truck, AlertTriangle, Clock, TrendingUp, ChevronRight, Warehouse, ClipboardCheck } from 'lucide-react';
 import { TabHeader } from '../_utils';
 import type { Order, Product } from '../_types';
 
@@ -11,12 +11,31 @@ interface DashboardTabProps {
   onViewReplenishmentProducts: () => void;
 }
 
+type DateFilter = 'hoy' | '7dias' | '30dias' | 'mes' | 'todo';
+
+const PAID_LIFECYCLE = new Set(['pagado', 'preparando', 'enviado', 'entregado']);
+
 export default function DashboardTab({
   orders,
   products,
   onViewReplenishmentProducts,
 }: DashboardTabProps) {
-  const [dateFilter, setDateFilter] = useState<'hoy' | '7dias' | '30dias' | 'mes' | 'todo'>('todo');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('todo');
+  const [recentlyCountedProductIds, setRecentlyCountedProductIds] = useState<string[]>([]);
+  const [stockMigrationRequired, setStockMigrationRequired] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/admin/stock')
+      .then(async response => {
+        const data = await response.json();
+        if (cancelled) return;
+        setRecentlyCountedProductIds(data.recentlyCountedProductIds || []);
+        setStockMigrationRequired(data.migrationRequired === true);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [products]);
 
   // 1. Filtrar por rango de fechas
   const filteredByDateOrders = useMemo(() => {
@@ -42,7 +61,7 @@ export default function DashboardTab({
 
   // 2. Calcular métricas para el período
   const stats = useMemo(() => {
-    const confirmedPeriod = filteredByDateOrders.filter(o => o.status.toLowerCase() !== 'pendiente');
+    const confirmedPeriod = filteredByDateOrders.filter(o => PAID_LIFECYCLE.has(o.status.toLowerCase()));
     const sales = confirmedPeriod.reduce((sum, o) => sum + o.total_amount, 0);
     const count = confirmedPeriod.length;
     const pendingDespatch = confirmedPeriod.filter(o =>
@@ -54,10 +73,13 @@ export default function DashboardTab({
     const pendingPayment = filteredByDateOrders.filter(o => o.status.toLowerCase() === 'pendiente').length;
     
     // Cuenta de productos con stock <= 3 (reposición)
-    const replenishmentCount = products.filter(p => p.stock <= 3).length;
+    const activeProducts = products.filter(p => p.is_active);
+    const replenishmentCount = activeProducts.filter(p => p.stock <= 3).length;
+    const countedIds = new Set(recentlyCountedProductIds);
+    const countedRecently = activeProducts.filter(p => countedIds.has(p.id)).length;
 
-    return { sales, count, pendingDespatch, toPrepare, pendingPayment, replenishmentCount };
-  }, [filteredByDateOrders, products]);
+    return { sales, count, pendingDespatch, toPrepare, pendingPayment, replenishmentCount, countedRecently, activeProductCount: activeProducts.length };
+  }, [filteredByDateOrders, products, recentlyCountedProductIds]);
 
   const hasAlerts = stats.replenishmentCount > 0 || stats.toPrepare > 0 || stats.pendingPayment > 0;
 
@@ -138,7 +160,7 @@ export default function DashboardTab({
             <span className="text-[10px] font-bold uppercase text-zinc-400">Filtrar por:</span>
             <select
               value={dateFilter}
-              onChange={e => setDateFilter(e.target.value as any)}
+              onChange={e => setDateFilter(e.target.value as DateFilter)}
               className="p-2 border border-zinc-200 rounded-lg text-xs bg-zinc-55 hover:bg-zinc-100 outline-none cursor-pointer font-bold text-zinc-700 transition-colors"
             >
               <option value="todo">Todo el tiempo</option>
@@ -162,7 +184,7 @@ export default function DashboardTab({
               <p className="text-lg md:text-xl font-serif italic text-zinc-900 font-semibold">
                 ${stats.sales.toLocaleString('es-CL')}
               </p>
-              <span className="text-[9px] text-zinc-400 block mt-0.5">Ingresos reales confirmados</span>
+              <span className="text-[9px] text-zinc-400 block mt-0.5">Solo pedidos pagados y su ciclo de despacho</span>
             </div>
           </div>
 
@@ -193,6 +215,33 @@ export default function DashboardTab({
               <span className="text-[9px] text-zinc-400 block mt-0.5">Pedidos listos/en camino</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="p-3 bg-zinc-100 rounded-2xl text-zinc-700 shrink-0">
+            <Warehouse size={22} />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-zinc-950 text-lg">Bodega</h3>
+            {stockMigrationRequired ? (
+              <p className="text-sm text-zinc-600 mt-2">
+                Los movimientos de bodega están listos en el código. Falta aplicar la migración 20261002_stock_operations.sql en Supabase.
+              </p>
+            ) : (
+              <>
+                <div className="flex items-end gap-2 mt-2">
+                  <p className="text-3xl font-bold text-zinc-950">{stats.countedRecently}</p>
+                  <p className="text-sm text-zinc-600 pb-1">de {stats.activeProductCount} joyas activas con conteo físico en los últimos 30 días</p>
+                </div>
+                <p className="text-sm text-zinc-500 mt-2">
+                  Esto mide cobertura de revisión, no un porcentaje garantizado de exactitud.
+                </p>
+              </>
+            )}
+          </div>
+          <ClipboardCheck size={22} className="text-zinc-400 shrink-0" />
         </div>
       </div>
     </div>

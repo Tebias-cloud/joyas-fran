@@ -3,14 +3,15 @@
 import { useState, useEffect, useCallback, KeyboardEvent } from 'react';
 import Image from 'next/image';
 import {
-  X, Plus, UploadCloud, ChevronLeft, ChevronRight,
-  Star, Loader2, AlertTriangle, Sparkles, ChevronDown, ChevronUp, Check
+  X, UploadCloud, ChevronLeft, ChevronRight,
+  Star, Loader2, Sparkles, ChevronDown, ChevronUp, Copy, Instagram
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
-import { convertToWebp } from '@/lib/images';
+import { validatePhoto } from '@/lib/product-photo';
+import dynamic from 'next/dynamic';
 import type { ProductFormState, Category } from '../_types';
-import { DEFAULT_MATERIAL } from '../_utils';
+import { isSampleSku } from '@/lib/sample-catalog';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,6 @@ interface ProductFormProps {
   aiPreFilled: boolean;
   setAiPreFilled: (v: boolean) => void;
   isSlugDirty: boolean;
-  setIsSlugDirty: (v: boolean) => void;
   onSave: (formState: ProductFormState) => Promise<void>;
   onCancel: () => void;
   onScanWithAI?: () => void;
@@ -34,6 +34,19 @@ interface ProductFormProps {
 
 const slugify = (text: string) =>
   text.toLowerCase().trim().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+
+const ProductPhotoEditor = dynamic(() => import('./ProductPhotoEditor'), { ssr: false });
+
+async function uploadOriginalPhoto(file: File) {
+  validatePhoto(file);
+  const extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
+  const fileName = `${crypto.randomUUID()}-original.${extension}`;
+  const { error } = await supabase.storage.from('products').upload(fileName, file, {
+    contentType: file.type, cacheControl: '3600', upsert: false,
+  });
+  if (error) throw error;
+  return supabase.storage.from('products').getPublicUrl(fileName).data.publicUrl;
+}
 
 const AIBadge = () => (
   <span className="inline-flex items-center gap-0.5 bg-violet-100 text-violet-700 border border-violet-200 text-[8px] font-bold uppercase px-1.5 py-0.5 rounded">
@@ -50,7 +63,6 @@ export default function ProductForm({
   aiPreFilled,
   setAiPreFilled,
   isSlugDirty,
-  setIsSlugDirty,
   onSave,
   onCancel,
   onScanWithAI,
@@ -64,13 +76,16 @@ export default function ProductForm({
   const [isUploadingImgs, setIsUploadingImgs] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [tempImageUrl, setTempImageUrl] = useState('');
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [isSuggestingName, setIsSuggestingName] = useState(false);
   const [isRegeneratingDesc, setIsRegeneratingDesc] = useState(false);
+  const [isPreparingInstagram, setIsPreparingInstagram] = useState(false);
+  const [instagramCaption, setInstagramCaption] = useState('');
   const [userEditedDescription, setUserEditedDescription] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [photoToEdit, setPhotoToEdit] = useState<string | null>(null);
+  const [sampleReviewed, setSampleReviewed] = useState(false);
 
   const [useSizes, setUseSizes] = useState(() => !productForm.inventory['unico'] && Object.keys(productForm.inventory).length > 0);
 
@@ -92,20 +107,13 @@ export default function ProductForm({
     toast.loading(`Preparando ${files.length} foto(s)...`, { id: 'uploadToast' });
     try {
       for (const file of files) {
-        const webpBlob = await convertToWebp(file);
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.webp`;
-        const { error: uploadError } = await supabase.storage
-          .from('products')
-          .upload(fileName, webpBlob, { contentType: 'image/webp', cacheControl: '3600' });
-        if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
-        uploadedUrls.push(publicUrl);
+        uploadedUrls.push(await uploadOriginalPhoto(file));
       }
-      setProductForm(prev => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
       toast.success('¡Fotos subidas con éxito!', { id: 'uploadToast' });
-    } catch {
-      toast.error('Error al subir las fotos.', { id: 'uploadToast' });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al subir las fotos.', { id: 'uploadToast' });
     } finally {
+      if (uploadedUrls.length) setProductForm(prev => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
       setIsUploadingImgs(false);
       e.target.value = '';
     }
@@ -118,25 +126,37 @@ export default function ProductForm({
     setIsUploadingImgs(true);
     toast.loading('Reemplazando foto...', { id: 'uploadToast' });
     try {
-      const webpBlob = await convertToWebp(file);
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.webp`;
-      const { error: uploadError } = await supabase.storage
-        .from('products')
-        .upload(fileName, webpBlob, { contentType: 'image/webp', cacheControl: '3600' });
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
+      const publicUrl = await uploadOriginalPhoto(file);
       setProductForm(prev => {
         const copy = [...prev.images];
         copy[index] = publicUrl;
         return { ...prev, images: copy };
       });
       toast.success('Foto reemplazada.', { id: 'uploadToast' });
-    } catch {
-      toast.error('Error al reemplazar la foto.', { id: 'uploadToast' });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al reemplazar la foto.', { id: 'uploadToast' });
     } finally {
       setIsUploadingImgs(false);
       e.target.value = '';
     }
+  };
+
+  const handleApplyBackground = async (blob: Blob) => {
+    const source = photoToEdit;
+    if (!source) return;
+    const fileName = `${crypto.randomUUID()}-background.png`;
+    const { error } = await supabase.storage.from('products').upload(fileName, blob, {
+      contentType: 'image/png', cacheControl: '3600', upsert: false,
+    });
+    if (error) throw error;
+    const publicUrl = supabase.storage.from('products').getPublicUrl(fileName).data.publicUrl;
+    setProductForm(prev => {
+      const images = [...prev.images];
+      const index = images.indexOf(source);
+      images.splice(index < 0 ? images.length : index, 0, publicUrl);
+      return { ...prev, images };
+    });
+    toast.success('Copia añadida. La foto original se conserva. Guarda la joya para confirmar.');
   };
 
   const moveImage = (index: number, direction: 'left' | 'right') => {
@@ -196,7 +216,7 @@ export default function ProductForm({
     } finally {
       setIsSuggestingName(false);
     }
-  }, [productForm.images, productForm.category, productForm.name, isSlugDirty, setProductForm]);
+  }, [productForm.images, productForm.category, productForm.name, isSlugDirty, isSuggestingName, setProductForm]);
 
   // ─── Handler IA: regenerar descripción ─────────────────────────────────
 
@@ -232,6 +252,45 @@ export default function ProductForm({
     }
   }, [productForm.images, productForm.category, productForm.name, isRegeneratingDesc, userEditedDescription, setProductForm]);
 
+  const handlePrepareInstagram = useCallback(async () => {
+    const imageUrl = productForm.images[0];
+    if (!imageUrl || !productForm.name.trim() || isPreparingInstagram) return;
+
+    setIsPreparingInstagram(true);
+    try {
+      const totalStock = Object.values(productForm.inventory).reduce((sum, value) => sum + value, 0);
+      const res = await fetch('/api/admin/product-scanner/suggest-name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageUrl,
+          category: productForm.category,
+          currentName: productForm.name,
+          description: productForm.description,
+          price: Number(productForm.price) || undefined,
+          hasStock: totalStock > 0,
+          mode: 'instagram',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.caption) throw new Error(data.error || 'No se pudo preparar el texto');
+      setInstagramCaption(data.caption as string);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo preparar el texto');
+    } finally {
+      setIsPreparingInstagram(false);
+    }
+  }, [productForm, isPreparingInstagram]);
+
+  const copyInstagramCaption = async () => {
+    try {
+      await navigator.clipboard.writeText(instagramCaption);
+      toast.success('Texto copiado. Ya puedes pegarlo en Instagram.');
+    } catch {
+      toast.error('No se pudo copiar. Selecciona el texto manualmente.');
+    }
+  };
+
   // ─── Handler Guardar ─────────────────────────────────────────────────────
 
   const handleSaveProduct = async () => {
@@ -256,7 +315,11 @@ export default function ProductForm({
 
     setIsSaving(true);
     try {
-      await onSave(productForm);
+      if (sampleReviewed && (!productForm.material.trim() || productForm.material.trim().toLowerCase() === 'por confirmar')) {
+        toast.error('Confirma el material en el paso anterior antes de habilitar ventas.');
+        return;
+      }
+      await onSave(sampleReviewed && isSampleSku(productForm.sku) ? { ...productForm, sku: productForm.sku.replace(/^FRAN-MUESTRA-/, '') } : productForm);
     } finally {
       setIsSaving(false);
     }
@@ -340,6 +403,7 @@ export default function ProductForm({
 
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm animate-fade-in-up space-y-6">
+      {photoToEdit && <ProductPhotoEditor source={photoToEdit} onClose={() => setPhotoToEdit(null)} onApply={handleApplyBackground} />}
       
       {/* Cabecera del formulario */}
       <div className="flex justify-between items-center pb-3 border-b">
@@ -394,7 +458,7 @@ export default function ProductForm({
             <input
               type="file"
               multiple
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp"
               onChange={handleFileUpload}
               disabled={isUploadingImgs}
               onDragOver={() => setIsDragging(true)}
@@ -470,7 +534,8 @@ export default function ProductForm({
                       <input type="file" accept="image/*" disabled={isUploadingImgs} onChange={e => handleReplaceImage(e, i)} className="hidden" />
                     </label>
                   </div>
-                  <div className="absolute bottom-0 inset-x-0 bg-black/60 p-2 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button type="button" onClick={() => setPhotoToEdit(img)} disabled={isUploadingImgs} className="absolute bottom-10 inset-x-1 rounded bg-white/95 border py-2 text-[10px] font-semibold">Preparar foto</button>
+                  <div className="absolute bottom-0 inset-x-0 bg-black/60 p-2 flex justify-between items-center sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                     <div className="flex gap-1">
                       <button type="button" disabled={i === 0} onClick={() => moveImage(i, 'left')} className="text-white hover:bg-white/20 p-1 rounded disabled:opacity-30">
                         <ChevronLeft size={12} />
@@ -601,13 +666,11 @@ export default function ProductForm({
             />
           </div>
 
-          {/* Material (Fijo) */}
+          {/* Material confirmed by the owner, never inferred from appearance. */}
           <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase text-gray-400">Material principal</label>
-            <div className="w-full p-3 border border-zinc-200 rounded-lg bg-zinc-50 text-zinc-600 text-sm font-medium">
-              {DEFAULT_MATERIAL}
-            </div>
-            <p className="text-[9px] text-zinc-400 mt-0.5">Centralizado para Joyas Fran.</p>
+            <input value={productForm.material} maxLength={100} onChange={event => setProductForm(previous => ({ ...previous, material: event.target.value }))} className="w-full p-3 border border-zinc-200 rounded-lg text-sm" />
+            <p className="text-[9px] text-zinc-400 mt-0.5">Confirma el material con la etiqueta o tu proveedor. Una foto no acredita pureza ni piedras.</p>
           </div>
         </div>
       )}
@@ -618,6 +681,10 @@ export default function ProductForm({
           <div className="pb-2 border-b border-gray-100">
             <p className="text-xs font-bold uppercase tracking-widest text-gray-700">💰 Precio y Stock</p>
           </div>
+          {isSampleSku(productForm.sku) && <div className="rounded-xl border bg-zinc-50 p-4 space-y-2 text-sm">
+            <p>Esta joya sigue bloqueada para pagos hasta confirmar datos reales. Primero registra un Conteo físico desde su tarjeta; luego vuelve aquí para confirmar precio y material.</p>
+            <label className="flex gap-2"><input type="checkbox" checked={sampleReviewed} onChange={event => setSampleReviewed(event.target.checked)} /> Confirmé precio y material reales y ya hice el conteo físico.</label>
+          </div>}
 
           {/* Precio y Precio Anterior */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -643,6 +710,18 @@ export default function ProductForm({
             </div>
           </div>
 
+          {editingProductId ? (
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+              <p className="text-sm font-bold text-zinc-900">El stock se administra por separado</p>
+              <p className="text-sm text-zinc-600 mt-1">
+                Guarda aquí fotos, precio y datos de la joya. Para ventas, entradas o conteos físicos vuelve al catálogo y usa “Stock / venta”.
+              </p>
+              <p className="text-xs text-zinc-500 mt-2">
+                Así una ficha que quedó abierta no puede restaurar cantidades antiguas.
+              </p>
+            </div>
+          ) : (
+            <>
           {/* Tallas Selector */}
           <div className="space-y-2">
             <label className="text-[10px] font-bold uppercase text-gray-400">¿Esta joya tiene tallas?</label>
@@ -724,10 +803,62 @@ export default function ProductForm({
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-zinc-400 italic">No hay tallas configuradas para la categoría "{productForm.category || 'actual'}". Puedes configurarlas en la pestaña Ajustes.</p>
+                <p className="text-xs text-zinc-400 italic">No hay tallas configuradas para la categoría &quot;{productForm.category || 'actual'}&quot;. Puedes configurarlas en la pestaña Ajustes.</p>
               )}
             </div>
           )}
+
+
+            </>
+          )}
+          <div className="border border-pink-200 bg-pink-50/50 rounded-xl p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-2">
+                <Instagram size={17} className="text-pink-600 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-zinc-800">Texto para Instagram</p>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">
+                    Usa los datos actuales de la joya. No publica nada automáticamente.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handlePrepareInstagram}
+                disabled={isPreparingInstagram || !productForm.images[0] || !productForm.name.trim()}
+                className="bg-white border border-pink-200 hover:border-pink-400 text-pink-700 px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {isPreparingInstagram
+                  ? <Loader2 size={11} className="animate-spin" />
+                  : <Sparkles size={11} />}
+                {instagramCaption ? 'Preparar otro' : 'Preparar texto'}
+              </button>
+            </div>
+
+            {instagramCaption && (
+              <div className="space-y-2 animate-fade-in">
+                <textarea
+                  value={instagramCaption}
+                  onChange={event => setInstagramCaption(event.target.value)}
+                  rows={7}
+                  maxLength={900}
+                  className="w-full p-3 border border-pink-200 rounded-lg text-xs leading-relaxed outline-none focus:border-pink-400 resize-y bg-white"
+                />
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[9px] text-zinc-500">
+                    Revísalo antes de copiar. La disponibilidad final siempre la confirma la tienda.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={copyInstagramCaption}
+                    className="shrink-0 flex items-center gap-1.5 bg-pink-600 hover:bg-pink-700 text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase"
+                  >
+                    <Copy size={11} /> Copiar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Más Opciones (Visibilidad / Borrador / Destacados) */}
           <div className="border-t pt-3">

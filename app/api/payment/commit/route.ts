@@ -5,8 +5,12 @@ import { getPaymentDetails, refundPayment } from '@/services/paymentService';
 
 export async function POST(request: Request) {
   try {
-    const { payment_id, status, external_reference } = await request.json();
-    console.log("🔵 Confirmando transacción MP:", { payment_id, status, external_reference });
+    const { payment_id, status } = await request.json();
+    console.log("🔵 Confirmando transacción MP:", { payment_id, status });
+
+    if (!payment_id) {
+      return NextResponse.json({ success: false, message: 'Falta el identificador del pago.' }, { status: 400 });
+    }
 
     if (status !== 'approved') {
       return NextResponse.json({ success: false, message: 'Pago no aprobado o cancelado por el cliente.' });
@@ -16,8 +20,12 @@ export async function POST(request: Request) {
     const paymentData = await getPaymentDetails(payment_id);
 
     if (paymentData.status === 'approved') {
-      // Rescatamos el ID de la orden que mandamos al principio
-      const orderId = external_reference || paymentData.external_reference;
+      // La referencia confiable es la que entrega Mercado Pago, nunca la enviada por el navegador.
+      const orderId = paymentData.external_reference;
+
+      if (!orderId) {
+        return NextResponse.json({ success: false, message: 'El pago no contiene una orden asociada.' }, { status: 400 });
+      }
 
       // 2. Buscar la orden exacta en la base de datos
       const order = await getOrderById(supabaseAdmin, orderId);

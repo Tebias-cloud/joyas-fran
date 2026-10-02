@@ -5,6 +5,7 @@ import { Metadata } from 'next';
 import { CartProvider } from '@/context/CartContext'; 
 import WhatsAppButton from '@/components/ui/WhatsAppButton';
 import { SITE_URL } from '@/lib/config';
+import SampleCatalogNotice from '@/components/ui/SampleCatalogNotice';
 
 // Optimización de fuentes: 'swap' evita el texto invisible mientras carga
 const playfair = Playfair_Display({ 
@@ -24,12 +25,12 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL), // Recuerda cambiar esto por tu dominio real si compras uno
   title: {
     template: '%s | Joyas Fran',
-    default: 'Joyas Fran | Plata Ley 925 y Diseño Exclusivo',
+    default: 'Joyas Fran | Joyas en Iquique',
   },
-  description: 'Colección exclusiva de joyas en Plata Ley 925. Diseños importados seleccionados para resaltar tu estilo.',
+  description: 'Descubre las joyas de Joyas Fran. Dijes, pulseras y atención cercana desde Iquique.',
   openGraph: {
-    title: 'Joyas Fran | Plata Ley 925',
-    description: 'Descubre nuestra colección exclusiva de joyas importadas.',
+    title: 'Joyas Fran | Joyas en Iquique',
+    description: 'Descubre nuestra colección de joyas y consulta disponibilidad.',
     url: SITE_URL,
     siteName: 'Joyas Fran',
     locale: 'es_CL',
@@ -49,6 +50,7 @@ export default function RootLayout({
     <html lang="es" className={`${playfair.variable} ${lato.variable}`} suppressHydrationWarning>
       <body className="font-sans antialiased text-gray-900 bg-white selection:bg-black selection:text-white">
         <CartProvider>
+          <SampleCatalogNotice />
           {children}
           
           {/* Notificaciones Toast */}

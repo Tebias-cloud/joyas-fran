@@ -3,6 +3,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import CatalogClient from './CatalogClient';
 import CatalogSkeleton from '@/components/ui/CatalogSkeleton';
+import { getWebsiteContent } from '@/lib/website-content-server';
 
 // --- CONFIGURACIÓN DE RENDIMIENTO ---
 // Revalidar la caché cada 60 segundos (ISR).
@@ -10,8 +11,8 @@ import CatalogSkeleton from '@/components/ui/CatalogSkeleton';
 export const revalidate = 60;
 
 export const metadata = {
-  title: 'Catálogo Completo | Joyas Fran',
-  description: 'Explora nuestra colección exclusiva de joyas hechas a mano en Plata Ley 925.',
+  title: 'Catálogo',
+  description: 'Explora las joyas disponibles de Joyas Fran y encuentra tu próxima favorita.',
 };
 
 // --- DEFINICIÓN DE TIPOS ---
@@ -62,7 +63,7 @@ async function getCatalogData() {
 }
 
 export default async function CatalogoPage() {
-  const { products, categories } = await getCatalogData();
+  const [{ products, categories }, content] = await Promise.all([getCatalogData(), getWebsiteContent()]);
 
   const legacyProducts: Product[] = products.map(p => ({
     id: p.id,
@@ -85,7 +86,7 @@ export default async function CatalogoPage() {
       <Header />
       <main className="flex-grow">
         <Suspense fallback={<CatalogSkeleton />}>
-          <CatalogClient initialProducts={legacyProducts} categories={categories} />
+          <CatalogClient initialProducts={legacyProducts} categories={categories} title={content.catalogTitle} description={content.catalogDescription} />
         </Suspense>
       </main>
       <Footer />

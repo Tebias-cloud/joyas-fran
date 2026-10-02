@@ -1,90 +1,59 @@
-# 🏛️ Documento de Arquitectura - Joyas Fran
+# Arquitectura
 
-Este documento detalla el diseño de la arquitectura del e-commerce **Joyas Fran**, la estructura de directorios, la separación de responsabilidades por capas y los flujos críticos de la aplicación.
+Joyas Fran es un monolito modular en Next.js. La interfaz, los controladores HTTP y la integración con servicios externos se despliegan juntos; PostgreSQL conserva las transacciones críticas.
 
----
+## Capas
 
-## 🏗️ 1. Estructura de Capas y Responsabilidades
+- `app/`: páginas, layouts y Route Handlers.
+- `components/`: interfaz reutilizable sin acceso privilegiado.
+- `services/`: reglas de negocio y adaptadores externos.
+- `lib/`: autenticación, configuración, clientes y utilidades.
+- `types/`: contratos compartidos.
+- `supabase/migrations/`: cambios versionados de base de datos.
 
-La aplicación sigue una **arquitectura en capas desacoplada** sobre el framework Next.js 16, estructurando el código de la siguiente manera:
+## Límites de confianza
 
-```text
-joyas-fran/
-├── app/              # Capa de Presentación, Páginas y Controladores (Server/Client Pages y API Routes)
-├── components/       # Capa de UI y Componentes de Presentación Reutilizables
-├── services/         # Capa de Servicios (Contiene la lógica de negocio y queries a BD)
-├── types/            # Capa de Definiciones de Datos y Contratos (Modelos e interfaces DTO)
-└── lib/              # Capa de Utilidades, Clientes Singletón y Configuraciones Base
-```
+- El navegador nunca determina el monto que Mercado Pago cobra.
+- La service role de Supabase solo se utiliza en el servidor.
+- Las rutas administrativas comprueban la sesión y el rol antes de usar privilegios.
+- El webhook valida `x-signature` y `x-request-id` mediante HMAC-SHA256.
+- Un pago se vuelve a consultar directamente en Mercado Pago antes de confirmarlo.
+- El stock se descuenta mediante `confirm_payment_stock`, no con actualizaciones separadas desde el cliente.
 
-### Detalle de Capas:
+## Compra y pago
 
-*   **`app/` (Páginas y API Routes):**
-    *   *Páginas:* Capturan la entrada del usuario, cargan datos iniciales mediante Server Components o `useEffect` y delegan la renderización en componentes de UI.
-    *   *API Routes:* Actúan como controladores REST que reciben peticiones del cliente, invocan a los servicios correspondientes y retornan respuestas con formato unificado.
-*   **`components/` (Componentes de UI):**
-    *   Componentes aislados de la lógica de negocio y consultas a base de datos. Reciben datos a través de props y emiten eventos a través de funciones callback.
-*   **`services/` (Lógica de Negocio):**
-    *   Encapsula las llamadas a la base de datos (Supabase) y a las APIs externas (Mercado Pago).
-    *   Aísla el esquema físico de las tablas mediante el uso de **DTOs (Data Transfer Objects)**.
-*   **`types/` (Tipos y Contratos):**
-    *   Define interfaces estrictas para modelar las entidades de la base de datos y los contratos de datos (DTOs) consumidos por las vistas del frontend.
-*   **`lib/` (Infraestructura y Configuración):**
-    *   Centraliza la instanciación de dependencias (singletons de Supabase para cliente, servidor y administrador) y variables de configuración globales.
+1. El cliente valida el stock visible y crea una orden mediante `process_checkout`.
+2. `POST /api/payment/create` recupera el total guardado y crea la preferencia.
+3. Mercado Pago procesa el cobro y notifica `POST /api/payment/webhook`.
+4. El servidor valida la firma, consulta el pago y compara referencia, estado y monto.
+5. PostgreSQL confirma la orden y descuenta stock de forma atómica.
+6. Si el stock se agota después del cobro, el sistema intenta reembolsar y registra el incidente.
 
----
+La ruta `/api/payment/commit` confirma el retorno interactivo del comprador. El webhook sigue siendo la fuente confiable cuando el cliente cierra la pestaña o no regresa.
 
-## 🔒 2. Flujo de Autenticación y Seguridad
+## Administración
 
-La autenticación está delegada en **Supabase Auth** y se compone de tres elementos de protección:
+`proxy.ts` protege `/admin`, `/cuenta` y `/checkout`. Los Route Handlers administrativos repiten la autorización en servidor antes de leer o modificar datos privilegiados.
 
-1.  **Frontend (Browser Client):**
-    *   El singleton `supabaseBrowser` en `lib/supabase-browser.ts` gestiona el token JWT en el navegador, controlando las vistas locales de sesión en `AccountPage` y `Header`.
-2.  **Servidor (Edge Proxy Middleware):**
-    *   El archivo de configuración [proxy.ts](file:///c:/Users/Esteban/Desktop/proyectosT/joyas-fran/proxy.ts) intercepta todas las peticiones entrantes en el servidor.
-    *   Verifica la firma del token JWT utilizando `supabase.auth.getUser()`. Si la sesión es inválida o expiró, redirige al usuario a `/login`.
-    *   En la ruta `/admin`, restringe el acceso validando el email contra la variable segura de servidor `ADMIN_EMAIL`.
-3.  **Base de Datos (Row Level Security - RLS):**
-    *   Todas las consultas anon o autenticadas a nivel de cliente son auditadas en PostgreSQL mediante políticas RLS. El acceso administrativo a datos de facturación e inventario está bloqueado para usuarios sin privilegios.
+El panel permite operar desde móvil, pero el inventario solo baja automáticamente para ventas procesadas por la web. Las ventas presenciales, por Instagram o por WhatsApp requieren todavía un ajuste manual; una futura función de venta rápida debe resolverlo sin debilitar la transacción de stock.
 
----
+## Asistente de catálogo
 
-## 💳 3. Flujo de Checkout y Pagos
+El scanner conserva una original y prepara una copia WebP para Gemini. El servidor solo descarga JPG/PNG/WebP del bucket público `products`, limita a 15 MB y 40 megapíxeles y prepara una copia de análisis de hasta 1200 px. El formulario siempre queda sujeto a revisión humana.
 
-El flujo de checkout está diseñado para prevenir la manipulación de montos del lado del cliente y garantizar que el descuento de stock ocurra únicamente tras verificar el pago exitoso:
+La IA no decide precio, stock, SKU ni material. También puede preparar un borrador editable para Instagram usando la ficha actual; no publica ni sincroniza publicaciones externas.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Cliente as "Cliente"
-    participant Checkout as "CheckoutPage (Client)"
-    participant API as "API /api/payment"
-    participant MP as "Mercado Pago SDK"
-    participant DB as "Supabase (DB Admin)"
+El editor de fondos experimental conserva la original y añade un PNG derivado a la galería solo tras revisión explícita. Usa BiRefNet lite (MIT), revisión `de15b22ba131738a16dff04aab8bdf8dc32e3ac1`, mediante Transformers.js (Apache-2.0), en un Web Worker. Los pesos se descargan desde Hugging Face y se cachean en el navegador; las fotografías no se envían a ese proveedor. El worker se termina al completar, cancelar o cerrar para liberar memoria. La segmentación genera únicamente alfa; RGB proviene de la foto encuadrada (hasta 1600 px), sin generación, retoque ni eliminación de reflejos. Se centra proporcionalmente en un lienzo de 1200 × 1200 con la textura oscura de marca por defecto y marfil como alternativa, definidos en `lib/product-photo.ts`.
 
-    Cliente->>Checkout: Clic en "Ir a pagar"
-    Checkout->>API: POST /payment/create { orderId }
-    Note over API: Carga order.total_amount desde DB
-    API->>API: Marca pedido como 'Pendiente Pago'
-    API->>API: Registra uso inicial del cupón en DB
-    API->>MP: createPreference(orderId, total)
-    MP-->>API: Retorna URL de Cobro (init_point)
-    API-->>Checkout: Retorna URL de cobro
-    Checkout->>Cliente: Redirecciona a Mercado Pago
-    Cliente->>MP: Realiza el pago
-    MP->>Checkout: Redirecciona a /payment/result
-    Checkout->>API: POST /payment/commit { payment_id, external_reference }
-    API->>MP: getPaymentDetails(payment_id)
-    MP-->>API: Retorna Estado Aprobado y Monto Cobrado
-    Note over API: Valida que monto cobrado == monto original
-    API->>DB: Ejecuta RPC 'confirm_payment_stock'
-    Note over DB: Descuenta inventario y actualiza a 'Pagado'
-    DB-->>API: Éxito transaccional
-    API-->>Checkout: Éxito de confirmación
-    Checkout->>Cliente: Muestra comprobante
-```
+El contenido de inicio y los títulos del catálogo se validan con Zod en `lib/website-content.ts`. La pestaña Página web lee y escribe la clave `website` de `store_settings` mediante `/api/admin/website`, con autorización administrativa. `/api/website` expone solo esa configuración y una lista explícita de campos públicos de los destacados; excluye costos y proveedores. Las joyas destacadas agotadas o desactivadas se ocultan al consultar la página. La portada es manual, y sin configuración se usa un fondo oscuro sin imágenes de productos. La tabla y las políticas existentes deben comprobarse en Supabase antes de producción.
 
-### Puntos clave de seguridad:
-*   El cliente **nunca** define el precio de cobro en la pasarela; el backend de la tienda consulta el total del pedido en la base de datos de manera interna.
-*   El contador de cupones se incrementa y registra en `coupon_usage` en el backend durante la inicialización de preferencia, controlando duplicaciones en caso de reintentos mediante comprobación de uso por ID de orden.
-*   La confirmación (`commit`) del pago valida que la cantidad abonada en Mercado Pago coincida exactamente con el precio registrado del pedido, bloqueando compras fraudulentas de montos menores.
+Se usa Webpack explícitamente en desarrollo y build: Turbopack de Next 16.1.1 emite este worker como `.ts` sin compilar. No basta con un build exitoso: comprobar el worker en navegador es parte de la validación. `.npmrc` evita descargar CUDA de ONNX Node, que no se utiliza para el editor cliente.
+
+Límites: descarga inicial pesada (~180 MB de pesos más runtime), alto consumo de memoria y recortes imperfectos en huecos y cadenas. Requiere revisión, conexión inicial y navegador moderno. No hay clasificación fiable de confianza ni corrección manual de máscara aún. No se debe anunciar soporte perfecto para todos los diseños/dispositivos. Una copia en la galería también es pública cuando se guarda el producto; la original no es un archivo privado.
+
+## Decisiones pendientes
+
+- Plataforma gratuita definitiva, después de probar cookies, imágenes, Route Handlers y webhooks.
+- Registro rápido de ventas externas.
+- Validación del editor con más diseños y teléfonos reales; corrección manual de máscaras y fondos de marca.
+- Publicación opcional mediante Meta Graph API después de validar permisos y cuenta comercial.
