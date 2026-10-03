@@ -9,7 +9,6 @@ import {
 import { toast } from 'sonner';
 import { supabaseBrowser as supabase } from '@/lib/supabase-browser';
 import { validatePhoto } from '@/lib/product-photo';
-import dynamic from 'next/dynamic';
 import type { ProductFormState, Category } from '../_types';
 import { isSampleSku } from '@/lib/sample-catalog';
 
@@ -34,8 +33,6 @@ interface ProductFormProps {
 
 const slugify = (text: string) =>
   text.toLowerCase().trim().replace(/ /g, '-').replace(/[^\w-]+/g, '');
-
-const ProductPhotoEditor = dynamic(() => import('./ProductPhotoEditor'), { ssr: false });
 
 async function uploadOriginalPhoto(file: File) {
   validatePhoto(file);
@@ -84,7 +81,6 @@ export default function ProductForm({
   const [instagramCaption, setInstagramCaption] = useState('');
   const [userEditedDescription, setUserEditedDescription] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [photoToEdit, setPhotoToEdit] = useState<string | null>(null);
   const [sampleReviewed, setSampleReviewed] = useState(false);
 
   const [useSizes, setUseSizes] = useState(() => !productForm.inventory['unico'] && Object.keys(productForm.inventory).length > 0);
@@ -139,24 +135,6 @@ export default function ProductForm({
       setIsUploadingImgs(false);
       e.target.value = '';
     }
-  };
-
-  const handleApplyBackground = async (blob: Blob) => {
-    const source = photoToEdit;
-    if (!source) return;
-    const fileName = `${crypto.randomUUID()}-background.png`;
-    const { error } = await supabase.storage.from('products').upload(fileName, blob, {
-      contentType: 'image/png', cacheControl: '3600', upsert: false,
-    });
-    if (error) throw error;
-    const publicUrl = supabase.storage.from('products').getPublicUrl(fileName).data.publicUrl;
-    setProductForm(prev => {
-      const images = [...prev.images];
-      const index = images.indexOf(source);
-      images.splice(index < 0 ? images.length : index, 0, publicUrl);
-      return { ...prev, images };
-    });
-    toast.success('Copia añadida. La foto original se conserva. Guarda la joya para confirmar.');
   };
 
   const moveImage = (index: number, direction: 'left' | 'right') => {
@@ -403,8 +381,7 @@ export default function ProductForm({
 
   return (
     <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm animate-fade-in-up space-y-6">
-      {photoToEdit && <ProductPhotoEditor source={photoToEdit} onClose={() => setPhotoToEdit(null)} onApply={handleApplyBackground} />}
-      
+
       {/* Cabecera del formulario */}
       <div className="flex justify-between items-center pb-3 border-b">
         <h3 className="font-serif italic text-xl text-gray-900">
@@ -534,7 +511,6 @@ export default function ProductForm({
                       <input type="file" accept="image/*" disabled={isUploadingImgs} onChange={e => handleReplaceImage(e, i)} className="hidden" />
                     </label>
                   </div>
-                  <button type="button" onClick={() => setPhotoToEdit(img)} disabled={isUploadingImgs} className="absolute bottom-10 inset-x-1 rounded bg-white/95 border py-2 text-[10px] font-semibold">Preparar foto</button>
                   <div className="absolute bottom-0 inset-x-0 bg-black/60 p-2 flex justify-between items-center sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                     <div className="flex gap-1">
                       <button type="button" disabled={i === 0} onClick={() => moveImage(i, 'left')} className="text-white hover:bg-white/20 p-1 rounded disabled:opacity-30">

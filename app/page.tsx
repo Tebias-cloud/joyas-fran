@@ -50,7 +50,11 @@ const RevealOnScroll = ({ children, delay = 0, className = "" }: { children: Rea
 
 // --- PÁGINA PRINCIPAL ---
 export default function HomePage() {
-  const [categories, setCategories] = useState<CategoryDTO[]>([]);
+  const [categories, setCategories] = useState<CategoryDTO[]>([
+    { id: 1, name: 'Anillos', slug: 'anillos', description: '', imageUrl: '/img/cat-anillos.webp', position: 0, isActive: true },
+    { id: 2, name: 'Collares', slug: 'collares', description: '', imageUrl: '/img/cat-collares.webp', position: 1, isActive: true },
+    { id: 3, name: 'Aros', slug: 'aros', description: '', imageUrl: '/img/cat-aros.webp', position: 2, isActive: true }
+  ]);
   const [content, setContent] = useState(DEFAULT_WEBSITE_CONTENT);
   const [featured, setFeatured] = useState<FeaturedJewel[]>([]);
 
@@ -83,18 +87,40 @@ export default function HomePage() {
         {/* --- HERO SECTION --- */}
         <HomeHero content={content} />
 
-        {featured.length > 0 && <section className="py-16 px-6 max-w-7xl mx-auto">
-          <h2 className="text-4xl font-serif italic text-center mb-10">{content.featuredTitle}</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-            {featured.map(jewel => <Link key={jewel.id} href={`/producto/${jewel.slug}`} className="group">
-              <div className="relative aspect-square bg-[#f5f1e9] overflow-hidden rounded-lg">
-                {jewel.imageUrl && <Image src={jewel.imageUrl} alt={jewel.name} fill className="object-contain group-hover:scale-105 transition-transform" sizes="(max-width: 768px) 45vw, 30vw" unoptimized />}
-              </div>
-              <h3 className="mt-3 text-sm">{jewel.name}</h3>
-              <p className="text-sm text-zinc-600">${jewel.price.toLocaleString('es-CL')}</p>
-            </Link>)}
-          </div>
-        </section>}
+        {featured.length > 0 && (
+          <section className="py-20 md:py-24 px-6 max-w-7xl mx-auto">
+            <RevealOnScroll className="text-center mb-12">
+              <span className="text-[9px] uppercase tracking-[0.4em] text-gray-400 font-bold">Selección Joyas Fran</span>
+              <h2 className="text-4xl md:text-5xl font-serif italic text-gray-900 mt-3">{content.featuredTitle}</h2>
+            </RevealOnScroll>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8">
+              {featured.slice(0, 3).map((jewel, index) => (
+                <RevealOnScroll key={jewel.id} delay={index * 120}>
+                  <Link href={`/producto/${jewel.slug}`} className="group block">
+                    <div className="relative aspect-[4/5] bg-[#f5f1e9] overflow-hidden">
+                      <Image
+                        src={jewel.imageUrl}
+                        alt={jewel.name}
+                        fill
+                        className="object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+                        sizes="(max-width: 640px) 100vw, 33vw"
+                        unoptimized
+                      />
+                      <div className="absolute inset-0 ring-1 ring-inset ring-black/5" />
+                    </div>
+                    <div className="pt-4 flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="font-serif text-lg text-zinc-900 group-hover:underline underline-offset-4">{jewel.name}</h3>
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 mt-1">Ver detalle</p>
+                      </div>
+                      <p className="text-sm font-medium text-zinc-700 whitespace-nowrap">$${jewel.price.toLocaleString('es-CL')}</p>
+                    </div>
+                  </Link>
+                </RevealOnScroll>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* --- CATEGORÍAS (Con animación al scrollear) --- */}
         <section className="py-24 px-6 max-w-7xl mx-auto">
@@ -111,13 +137,13 @@ export default function HomePage() {
                    href={`/catalogo?category=${encodeURIComponent(cat.name)}`}
                    className="group relative aspect-[3/4] overflow-hidden bg-[#121212] cursor-pointer block"
                  >
-                    {cat.imageUrl && <Image
-                      src={cat.imageUrl}
-                      alt={cat.name} 
-                      fill 
-                      className="object-cover opacity-90 transition-transform duration-[1.5s] ease-out group-hover:scale-110 group-hover:opacity-100" 
+                    <Image
+                      src={cat.imageUrl || featured[i % Math.max(featured.length, 1)]?.imageUrl || ['/img/cat-anillos.webp','/img/cat-collares.webp','/img/cat-aros.webp'][i % 3]}
+                      alt={cat.name}
+                      fill
+                      className="object-cover opacity-90 transition-transform duration-[1.5s] ease-out group-hover:scale-110 group-hover:opacity-100"
                       unoptimized
-                    />}
+                    />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
                     
                     <div className="absolute inset-0 flex items-end p-8 md:p-10">

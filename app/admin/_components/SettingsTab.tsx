@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Plus, X, Package } from 'lucide-react';
 import { TabHeader } from '../_utils';
 import type { Category, SizeMap } from '../_types';
-import SampleCatalogSetup from './SampleCatalogSetup';
 
 interface SettingsTabProps {
   dbCategories: Category[];
@@ -22,7 +21,6 @@ export default function SettingsTab({
 
   return (
     <div className="space-y-8 animate-fade-in">
-      <SampleCatalogSetup />
       <TabHeader
         title="Ajustes Globales"
         description="Define las tallas habilitadas para cada categoría y otras configuraciones globales de la tienda."

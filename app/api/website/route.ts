@@ -8,8 +8,20 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const content = await getWebsiteContent();
-  const products = content.featuredProductIds.length ? await getProducts(supabaseAdmin).catch(() => []) : [];
-  // Never send internal SKU/cost/supplier data to the public client.
-  const jewels = products.map(({ id, name, slug, imageUrl, price, stock, isActive }) => ({ id, name, slug, imageUrl, price, stock, isActive }));
-  return NextResponse.json({ content, featured: selectFeaturedJewels(jewels, content.featuredProductIds) }, { headers: { 'Cache-Control': 'no-store' } });
+  const products = await getProducts(supabaseAdmin).catch(() => []);
+
+  const jewels = products.map(({ id, name, slug, imageUrl, price, stock, isActive, isFeatured }) => ({
+    id, name, slug, imageUrl, price, stock, isActive, isFeatured,
+  }));
+
+  const manuallySelected = selectFeaturedJewels(jewels, content.featuredProductIds);
+  const selectedIds = new Set(manuallySelected.map(item => item.id));
+  const automatic = jewels
+    .filter(item => item.isActive && item.stock > 0 && item.imageUrl && !selectedIds.has(item.id))
+    .sort((a, b) => Number(b.isFeatured) - Number(a.isFeatured));
+
+  return NextResponse.json(
+    { content, featured: [...manuallySelected, ...automatic].slice(0, 3) },
+    { headers: { 'Cache-Control': 'no-store' } }
+  );
 }
