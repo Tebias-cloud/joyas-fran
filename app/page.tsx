@@ -12,6 +12,12 @@ import { CategoryDTO } from '@/types/product';
 import HomeHero from '@/components/home/HomeHero';
 import { DEFAULT_WEBSITE_CONTENT, parseWebsiteContent, type FeaturedJewel } from '@/lib/website-content';
 
+const HOME_FALLBACK_JEWELS = [
+  { id: 'fallback-corazones', name: 'Dije Corazones', imageUrl: '/sample-catalog/dije-corazones.webp', price: 16900 },
+  { id: 'fallback-cisnes', name: 'Dije Cisnes', imageUrl: '/sample-catalog/dije-cisnes.webp', price: 16900 },
+  { id: 'fallback-pulsera', name: 'Pulsera de Cuentas Violetas', imageUrl: '/sample-catalog/pulsera-cuentas-violetas.webp', price: 22900 },
+] as const;
+
 // --- COMPONENTE UTILITARIO PARA ANIMAR AL SCROLLEAR ---
 const RevealOnScroll = ({ children, delay = 0, className = "" }: { children: ReactNode, delay?: number, className?: string }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -87,16 +93,18 @@ export default function HomePage() {
         {/* --- HERO SECTION --- */}
         <HomeHero content={content} />
 
-        {featured.length > 0 && (
-          <section className="py-20 md:py-24 px-6 max-w-7xl mx-auto">
-            <RevealOnScroll className="text-center mb-12">
-              <span className="text-[9px] uppercase tracking-[0.4em] text-gray-400 font-bold">Selección Joyas Fran</span>
-              <h2 className="text-4xl md:text-5xl font-serif italic text-gray-900 mt-3">{content.featuredTitle}</h2>
-            </RevealOnScroll>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8">
-              {featured.slice(0, 3).map((jewel, index) => (
+        <section className="py-20 md:py-24 px-6 max-w-7xl mx-auto">
+          <RevealOnScroll className="text-center mb-12">
+            <span className="text-[9px] uppercase tracking-[0.4em] text-gray-400 font-bold">Selección Joyas Fran</span>
+            <h2 className="text-4xl md:text-5xl font-serif italic text-gray-900 mt-3">{content.featuredTitle}</h2>
+          </RevealOnScroll>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8">
+            {(featured.length >= 3 ? featured.slice(0, 3) : HOME_FALLBACK_JEWELS).map((jewel, index) => {
+              const isRealProduct = 'slug' in jewel;
+              return (
                 <RevealOnScroll key={jewel.id} delay={index * 120}>
-                  <Link href={`/producto/${jewel.slug}`} className="group block">
+                  <Link href={isRealProduct ? `/producto/${jewel.slug}` : '/catalogo'} className="group block">
                     <div className="relative aspect-[4/5] bg-[#f5f1e9] overflow-hidden">
                       <Image
                         src={jewel.imageUrl}
@@ -111,16 +119,16 @@ export default function HomePage() {
                     <div className="pt-4 flex items-start justify-between gap-4">
                       <div>
                         <h3 className="font-serif text-lg text-zinc-900 group-hover:underline underline-offset-4">{jewel.name}</h3>
-                        <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 mt-1">Ver detalle</p>
+                        <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 mt-1">Ver colección</p>
                       </div>
-                      <p className="text-sm font-medium text-zinc-700 whitespace-nowrap">$${jewel.price.toLocaleString('es-CL')}</p>
+                      <p className="text-sm font-medium text-zinc-700 whitespace-nowrap">${jewel.price.toLocaleString('es-CL')}</p>
                     </div>
                   </Link>
                 </RevealOnScroll>
-              ))}
-            </div>
-          </section>
-        )}
+              );
+            })}
+          </div>
+        </section>
 
         {/* --- CATEGORÍAS (Con animación al scrollear) --- */}
         <section className="py-24 px-6 max-w-7xl mx-auto">
